@@ -1,15 +1,21 @@
-import Image from "next/image";
+import { getLatestFromFLV } from "@/lib/sources";
 import AnimeCard from "@/components/AnimeCard"
 
-export default function Home() {
+export default async function Home() {
+  const animes = await getLatestFromFLV();
+
   return (
-    <main className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      <AnimeCard
-        title="Sakamoto Days"
-        imageUrl="https://www3.animeflv.net/uploads/animes/thumbs/4125.jpg"
-        source="animeflv"
-        sourceUrl="https://www3.animeflv.net/ver/sakamoto-days-14"
-      />
+      <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      {animes.map((anime:{ title: string; url: string; image: string }, idx) => (
+        <AnimeCard
+          key={idx}
+          title={anime.title}
+          imageUrl={anime.image}
+          source="animeflv"
+          sourceUrl={anime.url}
+        />
+      ))}
+      
       <AnimeCard
         title="Kijin Gentoushou"
         imageUrl="https://cdn.animeav1.com/thumbnails/784.jpg"
@@ -22,7 +28,8 @@ export default function Home() {
         source="otakustv"
         sourceUrl="https://www1.otakustv.com/anime/yami-shibai-15/episodio-2"
       />
+          </section>
+
       
-    </main>
   );
 }
