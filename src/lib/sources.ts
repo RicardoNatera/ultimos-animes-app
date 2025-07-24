@@ -1,70 +1,187 @@
-import { fetchAnimeFLVHTML, parseAnimeFLV, 
-         fetchAnimeAV1HTML, parseAnimeAV1,
-         fetchOtakusTVHTML, parseOtakusTV } from "./scrapers/scraper";
+import { ScrapedAnime } from "@/types/anime";
+import {
+  fetchAnimeFLVHTML, parseAnimeFLV,
+  fetchAnimeAV1HTML, parseAnimeAV1,
+  fetchOtakusTVHTML, parseOtakusTV
+} from "./scrapers/scraper";
 import stringSimilarity from "string-similarity";
-export async function getLatestFromFLV() {
-  try {
-    const html = await fetchAnimeFLVHTML();
-    return parseAnimeFLV(html);
-  } catch (err) {
-    console.error("Error scraping AnimeFLV:", err);
-    return [];
-  }
+
+interface RankedAnime extends ScrapedAnime {
+  pseudoTimestamp: number;
 }
 
-export async function getLatestFromAV1() {
-  try {
-    const html = await fetchAnimeAV1HTML();
-    return parseAnimeAV1(html);
-  } catch (err) {
-    console.error("Error scraping AnimeAV1:", err);
-    return [];
-  }
+export const SOURCES = {
+  animeav1: "animeav1",
+  otakustv: "otakustv",
+  animeflv: "animeflv",
+} as const;
+
+export type SourceName = keyof typeof SOURCES; // "animeav1" | "otakustv" | "animeflv"
+
+const SOURCE_PRIORITY: Record<string, number> = {
+  [SOURCES.animeav1]: 0,
+  [SOURCES.otakustv]: 1,
+  [SOURCES.animeflv]: 2,
+};
+
+const scrapers = {
+  [SOURCES.animeflv]: {
+    fetch: fetchAnimeFLVHTML,
+    parse: parseAnimeFLV,
+  },
+  [SOURCES.animeav1]: {
+    fetch: fetchAnimeAV1HTML,
+    parse: parseAnimeAV1,
+  },
+  [SOURCES.otakustv]: {
+    fetch: fetchOtakusTVHTML,
+    parse: parseOtakusTV,
+  },
+} as const;
+
+const SIMILARITY_THRESHOLD = 0.8
+function areSimilarTitles(title1: string, title2: string): boolean {
+  const norm1 = normalizeTitle(title1);
+  const norm2 = normalizeTitle(title2);
+  return stringSimilarity.compareTwoStrings(norm1, norm2) >= SIMILARITY_THRESHOLD;
 }
 
-export async function getLatestFromOtakusTV() {
-  try {
-    const html = await fetchOtakusTVHTML();
-    return parseOtakusTV(html);
-  } catch (err) {
-    console.error("Error scraping AnimeAV1:", err);
-    return [];
-  }
-}
 function normalizeTitle(title: string): string {
   return title
     .toLowerCase()
     .replace(/(part\s*\d+|\d+(?:st|nd|rd|th)?\s*season)/gi, "")
-    .replace(/[^a-z0-9\s]/gi, "") // quita caracteres especiales
+    .replace(/[^a-z0-9\s]/gi, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
-function isSimilarTitle(titleA: string, titleB: string): boolean {
-  const similarity = stringSimilarity.compareTwoStrings(
-    normalizeTitle(titleA),
-    normalizeTitle(titleB)
-  );
-  return similarity > 0.8;
+async function getLatestFromSource(source: keyof typeof scrapers): Promise<ScrapedAnime[]> {
+  try {
+    const html = await scrapers[source].fetch();
+    return scrapers[source].parse(html);
+  } catch (err) {
+    console.error(`Error scraping ${source}:`, err);
+    return [];
+  }
 }
 
-export async function reduceAnimes(){
-  try {
-    const animes: { title: string; url: string; image: string; source: "animeflv" | "animeav1" | "otakustv" }[] = [];
-    const animeAV1Animes = await getLatestFromAV1();
-    const otakusTVAnimes = await getLatestFromOtakusTV();
-    const animeFLVAnimes = await getLatestFromFLV();
-    
-    const sources = [animeAV1Animes, otakusTVAnimes, animeFLVAnimes];
-    for (const sourceList of sources) {
-      for (const anime of sourceList) {
-        const alreadyExists = animes.some((a) => isSimilarTitle(a.title, anime.title));
-        if (!alreadyExists) {
-          animes.push(anime);
-        }
+function assignPseudoTimestampsInterleaved(sources: Record<string, ScrapedAnime[]>): RankedAnime[] {
+  const result: RankedAnime[] = [];
+  const baseTimestamp = 10000;
+
+  // Convertir a arreglo de claves ordenadas por prioridad
+  const sourceKeys = Object.keys(sources).sort((a, b) => SOURCE_PRIORITY[a] - SOURCE_PRIORITY[b]);
+
+  let index = 0;
+  let currentTimestamp = baseTimestamp;
+
+  // Mientras alguna fuente tenga elementos en esa posición
+  while (true) {
+    let anyAdded = false;
+
+    for (const source of sourceKeys) {
+      const list = sources[source];
+      if (index < list.length) {
+        result.push({
+          ...list[index],
+          pseudoTimestamp: currentTimestamp--,
+        });
+        anyAdded = true;
       }
     }
-    return animes
+
+    if (!anyAdded) break; // ya no hay más elementos en ninguna fuente
+    index++;
+  }
+
+  return result;
+}
+
+
+// Deduplicar por título normalizado + número de episodio, priorizando fuente
+function deduplicateAnimes(animes: RankedAnime[]): RankedAnime[] {
+  const deduped: RankedAnime[] = [];
+
+  for (const anime of animes) {
+    const episode = anime.episode;
+
+    const existingIndex = deduped.findIndex((existing) =>
+      existing.episode === episode &&
+      areSimilarTitles(existing.title, anime.title)
+    );
+
+    if (existingIndex === -1) {
+      deduped.push(anime);
+    } else {
+      const existing = deduped[existingIndex];
+      const priorityA = SOURCE_PRIORITY[anime.source];
+      const priorityB = SOURCE_PRIORITY[existing.source];
+
+      if (
+        priorityA < priorityB ||
+        (priorityA === priorityB && anime.pseudoTimestamp > existing.pseudoTimestamp)
+      ) {
+        deduped[existingIndex] = anime;
+      }
+    }
+  }
+
+  return deduped;
+}
+
+
+function groupNearbyEpisodes(animes: ScrapedAnime[]): ScrapedAnime[] {
+  const groups: ScrapedAnime[][] = [];
+
+  for (const anime of animes) {
+    // Buscar si ya existe un grupo con un título similar
+    let matchedGroup = groups.find(group =>
+      group.length > 0 && areSimilarTitles(group[0].title, anime.title)
+    );
+
+    // Si no hay grupo similar, crear uno nuevo
+    if (!matchedGroup) {
+      matchedGroup = [];
+      groups.push(matchedGroup);
+    }
+
+    matchedGroup.push(anime);
+  }
+
+  // Ordenar episodios dentro de cada grupo (de mayor a menor número)
+  for (const group of groups) {
+    group.sort((a, b) => (b.episode || 0) - (a.episode || 0));
+  }
+
+  // Aplanar todos los grupos en un solo array, manteniendo el orden original
+  return groups.flat();
+}
+
+
+export async function reduceAnimes(): Promise<ScrapedAnime[]> {
+  try {
+    const [animeAV1, otakusTV, animeFLV] = await Promise.all([
+      getLatestFromSource(SOURCES.animeav1),
+      getLatestFromSource(SOURCES.otakustv),
+      getLatestFromSource(SOURCES.animeflv),
+    ]);
+
+    const sources: Record<SourceName, ScrapedAnime[]> = {
+      animeav1: animeAV1,
+      otakustv: otakusTV,
+      animeflv: animeFLV,
+    };
+
+    const ranked = assignPseudoTimestampsInterleaved(sources);
+    const deduped = deduplicateAnimes(ranked);
+    deduped.sort((a, b) => b.pseudoTimestamp - a.pseudoTimestamp);
+
+    const grouped = groupNearbyEpisodes(
+      deduped.map(({ pseudoTimestamp, ...rest }) => rest)
+    );
+
+    return grouped;  
   } catch (err) {
-    console.error("Error scraping websites:", err);
+    console.error("Error reducing animes:", err);
     return [];
   }
 }

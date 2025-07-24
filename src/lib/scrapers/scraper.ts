@@ -1,5 +1,11 @@
 import axios from "axios";
 import * as cheerio from 'cheerio';
+import { ScrapedAnime } from "@/types/anime";
+
+export function extractEpisodeNumber(text: string): number {
+  const match = text.match(/\d+/); // busca el primer número en la cadena
+  return match ? parseInt(match[0], 10) : 0; // si no encuentra, retorna 0
+}
 
 export async function fetchAnimeFLVHTML(): Promise<string> {
   try {
@@ -13,15 +19,17 @@ export async function fetchAnimeFLVHTML(): Promise<string> {
 
 export function parseAnimeFLV(html: string) {
     const $ = cheerio.load(html);
-    const animes: { title: string; url: string; image: string; source: "animeflv" | "animeav1" | "otakustv" }[] = [];
+    const animes: ScrapedAnime[] = [];
     $(".ListEpisodios li").each((_, el) => {
         const title = $(el).find("strong.Title").text();
         const relativeUrl = $(el).find("a").attr("href");
         const url = `https://www3.animeflv.net${relativeUrl}`;
         const imgSrc = $(el).find("span.Image img").attr("src");
         const image = `https://www3.animeflv.net${imgSrc}`;
+        const episodeText = $(el).find(".Capi").text().trim();
+        const episode = extractEpisodeNumber(episodeText);
 
-        animes.push({title,url,image,source:"animeflv"})
+        animes.push({title,url,image,source:"animeflv",episode})
     });
 
     return animes;
@@ -39,14 +47,15 @@ export async function fetchAnimeAV1HTML(): Promise<string> {
 
 export function parseAnimeAV1(html: string) {
     const $ = cheerio.load(html);
-    const animes: { title: string; url: string; image: string; source: "animeflv" | "animeav1" | "otakustv" }[] = [];
+    const animes: ScrapedAnime[] = [];
     $("article.group\\/item").each((_, el) => {
         const title = $(el).find("header div.text-2xs").text().trim();
         const relativeUrl = $(el).find("a.absolute").attr("href");
         const url = `https://animeav1.com${relativeUrl}`;
         const imgSrc = $(el).find("img.aspect-video").attr("src");
         const image = `${imgSrc}`;
-        if(title) animes.push({title,url,image,source:"animeav1"})
+        const episode = parseInt($(el).find("span.font-bold.text-lead").text().trim()) || 0;
+        if(title) animes.push({title,url,image,source:"animeav1",episode})
     });
 
     return animes;
@@ -64,15 +73,17 @@ export async function fetchOtakusTVHTML(): Promise<string> {
 
 export function parseOtakusTV(html: string) {
     const $ = cheerio.load(html);
-    const animes: { title: string; url: string; image: string; source: "animeflv" | "animeav1" | "otakustv" }[] = [];
+    const animes: ScrapedAnime[] = [];
     $("div.pre").each((_, el) => {
         const title = $(el).find('h2 a').text().trim();
         const url = $(el).find('a').first().attr('href');
         const imgElement = $(el).find('img');
         const image = imgElement.attr('data-src') || imgElement.attr('src');
+        const episodeText = $(el).find(".bog").text().trim();
+        const episode = extractEpisodeNumber(episodeText);
 
         if (title && url && image) {
-          animes.push({ title, url, image, source:"otakustv" });
+          animes.push({ title, url, image, source:"otakustv",episode});
         }
     });
 
