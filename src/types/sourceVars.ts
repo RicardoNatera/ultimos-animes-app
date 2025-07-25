@@ -17,3 +17,15 @@ export const SOURCE_ICONS: Record<SourceName, string> = {
   otakustv: "https://www1.otakustv.com/favicon.ico",
   animeflv: "https://www3.animeflv.net/favicon.ico",
 };
+
+export const SOURCE_LOGOS = {
+  animeflv: "/icons/animeflv.png",
+  animeav1: "/icons/animeav1.png",
+  otakustv: "/icons/otakustv.png",
+};
+
+export const SOURCE_LINKS: Record<SourceName, string> = {
+  animeav1: "https://animeav1.com/",
+  otakustv: "https://www1.otakustv.com/",
+  animeflv: "https://www3.animeflv.net/",
+};

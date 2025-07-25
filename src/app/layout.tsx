@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import ThemeToggle from "@/components/ThemeToggle";
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -48,21 +49,17 @@ export default function RootLayout({
       <body
         suppressHydrationWarning 
         className={`
+          flex min-h-screen flex-col 
           ${geistSans.variable} ${geistMono.variable} 
           antialiased min-h-screen 
           bg-[--background] text-[--foreground]
         `}
       >
-        <header className="flex justify-between items-center px-6 py-4">
-          <h1 className="text-2xl font-bold mb-6 text-center">
-            Últimos animes subidos
-          </h1>
-          <ThemeToggle />
-        </header>
-        <main className="max-w-screen px-6">
+        <Header/>
+        <main className="flex flex-1 flex-col px-6">
           {children}
         </main>
-        
+        <Footer /> 
       </body>
     </html>
   );
