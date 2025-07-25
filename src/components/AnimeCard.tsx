@@ -15,10 +15,10 @@ type Props = {
 
 function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
   const badgeColor = source === "animeflv"
-    ? "bg-yellow-500"
+    ? "#facc15" // amarillo
     : source === "animeav1"
-      ? "bg-green-600"
-      : "bg-purple-500";
+      ? "#16a34a" // verde
+      : "#9333ea"; // morado
 
   const [downloads, setDownloads] = useState<{ label: string; url: string }[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,10 +33,10 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
         if (json.success && json.links.length > 0) {
           setDownloads(json.links);
           setError("");
-        }else{
-            setDownloads(null);
-            setError("No se encontraron enlaces de descarga.");
-          }
+        } else {
+          setDownloads(null);
+          setError("No se encontraron enlaces de descarga.");
+        }
       } catch (err) {
         setError("Error al conectar con la fuente.");
       } finally {
@@ -48,8 +48,11 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
   }, [source, sourceUrl]);
 
   return (
-    <div className="rounded-xl shadow-md overflow-visible bg-white p-3 w-full flex flex-col relative">
-      <div className="relative w-full aspect-video">
+    <div
+      className="rounded-xl shadow-md overflow-visible p-3 w-full flex flex-col relative"
+      style={{ backgroundColor: "var(--panel)", color: "var(--foreground)" }}
+    >
+      <div className="relative w-full aspect-3/2">
         <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
           <img
             src={imageUrl}
@@ -57,7 +60,10 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
             className="w-full h-full object-cover rounded-t-xl hover:brightness-95 transition cursor-pointer"
           />
         </a>
-        <span className="absolute top-2 left-2 bg-blue-500 text-white text-xs font-bold rounded px-2 py-1 shadow-md">
+        <span
+          className="absolute top-2 left-2 text-xs font-bold rounded px-2 py-1 shadow-md"
+          style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+        >
           Episodio {episode}
         </span>
         <img
@@ -68,11 +74,13 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
       </div>
 
       <div className="mt-2 flex items-center justify-between">
-        <div className={`flex items-center gap-1 ${badgeColor} text-white text-xs font-bold rounded-full px-3 py-1`}>
+        <div
+          className="flex items-center gap-1 text-xs font-bold rounded-full px-3 py-1"
+          style={{ backgroundColor: badgeColor, color: "#fff" }}
+        >
           <span>{source.toUpperCase()}</span>
         </div>
 
-        {/* Botón o íconos de estado */}
         <div className="ml-auto flex items-center">
           {loading && (
             <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
@@ -89,7 +97,8 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
           {!loading && !error && downloads && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className="text-gray-600 hover:text-gray-800 transition-colors cursor-pointer"
+              className="transition-colors cursor-pointer"
+              style={{ color: "var(--muted)" }}
               title="Mostrar enlaces de descarga"
             >
               <Download className="w-5 h-5" />
@@ -102,8 +111,9 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
         href={sourceUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-base font-semibold mt-2 truncate text-black hover:underline"
+        className="text-base font-semibold mt-2 truncate hover:underline"
         title={title}
+        style={{ color: "var(--foreground)" }}
       >
         {title}
       </a>

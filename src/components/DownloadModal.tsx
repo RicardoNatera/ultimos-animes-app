@@ -42,36 +42,52 @@ export default function DownloadModal({ onClose, downloads }: DownloadModalProps
           exit={{ scale: 0.9, opacity: 0 }}
           transition={{ type: "spring", damping: 20, stiffness: 300 }}
           ref={modalRef}
-          className="bg-white p-6 rounded-xl shadow-2xl max-w-md w-full relative"
+          className="p-6 rounded-xl shadow-2xl max-w-md w-full relative"
+          style={{
+            backgroundColor: "var(--panel)",
+            color: "var(--foreground)"
+          }}
         >
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 text-gray-600 hover:text-black text-2xl font-bold cursor-pointer"
-            aria-label="Cerrar modal"
-          >
-            ×
-          </button>
+            <button
+                onClick={onClose}
+                className="absolute top-3 right-3 text-lg font-bold cursor-pointer"
+                style={{ color: "var(--muted)" }}
+                aria-label="Cerrar modal"
+            >
+                ×
+            </button>
 
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            Enlaces de descarga
-          </h2>
+            <h2 className="text-xl font-semibold mb-4" style={{ color: "var(--foreground)" }}>
+                Enlaces de descarga
+            </h2>
 
-          <div className="max-h-64 overflow-y-auto pr-1">
-            <ul className="space-y-3">
-              {downloads.map((link, idx) => (
-                <li key={idx}>
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm font-medium px-3 py-2 rounded transition"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+            <div className="max-h-64 overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {downloads.map((link, idx) => (
+                    <a
+                        key={idx}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium px-3 py-2 rounded shadow-sm border transition-colors duration-200 text-center"
+                        style={{
+                        backgroundColor: "var(--panel)",
+                        color: "var(--accent)",
+                        borderColor: "var(--accent-border)",
+                        borderWidth: "1px"
+                        }}
+                        onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "var(--hover)";
+                        }}
+                        onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "var(--panel)";
+                        }}
+                    >
+                        {link.label}
+                    </a>
+                    ))}
+                </div>
+            </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>

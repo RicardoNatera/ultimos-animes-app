@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import ThemeToggle from "@/components/ThemeToggle";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,16 +24,40 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning >
+      <head>
+        {/* Pre-hydration theme fix to prevent flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  const theme = localStorage.getItem('theme');
+                  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  if (theme === 'dark' || (!theme && prefersDark)) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (_) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body
         suppressHydrationWarning 
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}
+        className={`
+          ${geistSans.variable} ${geistMono.variable} 
+          antialiased min-h-screen 
+          bg-[--background] text-[--foreground]
+        `}
       >
         <header className="flex justify-between items-center px-6 py-4">
           <h1 className="text-2xl font-bold mb-6 text-center">
             Últimos animes subidos
           </h1>
-
+          <ThemeToggle />
         </header>
         <main className="max-w-screen px-6">
           {children}
