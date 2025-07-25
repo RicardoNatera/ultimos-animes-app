@@ -62,7 +62,10 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
         </a>
         <span
           className="absolute top-2 left-2 text-xs font-bold rounded px-2 py-1 shadow-md"
-          style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+          style={{
+            backgroundColor: "var(--badge-bg)",
+            color: "var(--badge-fg)",
+          }}
         >
           Episodio {episode}
         </span>

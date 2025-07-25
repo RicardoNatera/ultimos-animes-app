@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
+@import "./styles/cat-loader.css";
 
 :root {
   --background: #ffffff;
@@ -10,8 +11,12 @@
   --panel: #f5f5f5;         /* Paneles claros */
   --border: #ddd;
   --hover: #f0f0f0;
-}
 
+  --badge-bg: #ffffff;        
+  --badge-fg: #000000;    
+  
+  --cat-sprite: url('/JumpCat.png');
+}
 
 @theme inline {
   --color-background: var(--background);
@@ -30,6 +35,11 @@
   --panel: #122b58;           /* Paneles o tarjetas */
   --border: #1c355e;          /* Bordes o líneas separadoras */
   --hover: #15386c;           /* Hover más claro */
+
+  --badge-bg: #000000;
+  --badge-fg: #ffffff;
+
+  --cat-sprite: url('/JumpCatBlack.png');
 }
 
 body {

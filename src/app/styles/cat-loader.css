@@ -1,0 +1,30 @@
+@keyframes sleepCat {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -416px 0;
+  }
+}
+
+.cat-loader-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;     
+  width: 100%;
+  overflow: hidden; 
+}
+
+.cat-loader {
+  width: 32px;
+  height: 32px;
+  background-image: var(--cat-sprite);
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  animation: sleepCat 1.2s steps(13) infinite;
+  background-size: auto;
+  transform: scale(3);
+  transform-origin: center;
+  image-rendering: pixelated;
+}
