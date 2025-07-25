@@ -1,15 +1,13 @@
-export type AnimeSource = "animeflv" | "animeav1" | "otakustv";
+import {SourceName} from "@/types/sourceVars"
 
 export interface ScrapedAnime {
   title: string;
   url: string;
   image: string;
   episode: number;
-  source: AnimeSource;
+  source: SourceName;
 }
 
-export type GroupedAnime = {
-  title: string; 
-  normalizedTitle: string; 
-  episodes: ScrapedAnime[]; 
-};
+export interface RankedAnime extends ScrapedAnime {
+  pseudoTimestamp: number;
+}

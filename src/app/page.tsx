@@ -3,12 +3,14 @@ import AnimeCard from "@/components/AnimeCard"
 import { ScrapedAnime } from "@/types/anime";
 
 export default async function Home() {
-  const animes = await reduceAnimes()
-  console.log(animes);
+  const start = performance.now();
+  const animes = await reduceAnimes();
+  const end = performance.now();
+  console.log(`[Perf] Tiempo total reduceAnimes: ${(end - start).toFixed(2)} ms`);
+
   return (
-      <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-      {
-      animes.map((anime:ScrapedAnime, idx) => (
+    <section className="grid gap-4 justify-items-center max-w-7xl mx-auto grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
+      {animes.map((anime: ScrapedAnime, idx) => (
         <AnimeCard
           key={idx}
           title={anime.title}
@@ -18,8 +20,6 @@ export default async function Home() {
           sourceUrl={anime.url}
         />
       ))}
-          </section>
-
-      
+    </section>
   );
 }

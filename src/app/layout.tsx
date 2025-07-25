@@ -23,14 +23,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
+        suppressHydrationWarning 
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}
       >
         <header className="flex justify-between items-center px-6 py-4">
-          <h1 className="text-white-800">
-            Ultimos Animes
+          <h1 className="text-2xl font-bold mb-6 text-center">
+            Últimos animes subidos
           </h1>
+
         </header>
         <main className="max-w-screen px-6">
           {children}

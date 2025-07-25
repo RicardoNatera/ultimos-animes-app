@@ -1,4 +1,5 @@
-import { ScrapedAnime } from "@/types/anime";
+import { ScrapedAnime, RankedAnime } from "@/types/anime";
+import {SOURCES, SOURCE_PRIORITY, SourceName} from "@/types/sourceVars"
 import {
   fetchAnimeFLVHTML, parseAnimeFLV,
   fetchAnimeAV1HTML, parseAnimeAV1,
@@ -6,24 +7,7 @@ import {
 } from "./scrapers/scraper";
 import stringSimilarity from "string-similarity";
 
-interface RankedAnime extends ScrapedAnime {
-  pseudoTimestamp: number;
-}
-
-export const SOURCES = {
-  animeav1: "animeav1",
-  otakustv: "otakustv",
-  animeflv: "animeflv",
-} as const;
-
-export type SourceName = keyof typeof SOURCES; // "animeav1" | "otakustv" | "animeflv"
-
-const SOURCE_PRIORITY: Record<string, number> = {
-  [SOURCES.animeav1]: 0,
-  [SOURCES.otakustv]: 1,
-  [SOURCES.animeflv]: 2,
-};
-
+const SIMILARITY_THRESHOLD = 0.8
 const scrapers = {
   [SOURCES.animeflv]: {
     fetch: fetchAnimeFLVHTML,
@@ -39,7 +23,6 @@ const scrapers = {
   },
 } as const;
 
-const SIMILARITY_THRESHOLD = 0.8
 function areSimilarTitles(title1: string, title2: string): boolean {
   const norm1 = normalizeTitle(title1);
   const norm2 = normalizeTitle(title2);
