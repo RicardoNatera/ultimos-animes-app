@@ -29,7 +29,7 @@ export default function Header() {
             className="w-8 h-8 object-contain"
           />
           <span className="text-lg font-semibold text-[var(--foreground)] hidden sm:inline">
-            AnimeApp
+            Push Anime
           </span>
         </Link>
 
