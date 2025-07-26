@@ -11,3 +11,11 @@ export interface ScrapedAnime {
 export interface RankedAnime extends ScrapedAnime {
   pseudoTimestamp: number;
 }
+
+export interface AnimeResult {
+  title: string;
+  image: string;
+  url: string;
+  source: SourceName;
+  description: string;
+}

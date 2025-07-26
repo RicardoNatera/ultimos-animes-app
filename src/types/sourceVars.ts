@@ -25,7 +25,7 @@ export const SOURCE_LOGOS = {
 };
 
 export const SOURCE_LINKS: Record<SourceName, string> = {
-  animeav1: "https://animeav1.com/",
-  otakustv: "https://www1.otakustv.com/",
-  animeflv: "https://www3.animeflv.net/",
+  animeav1: "https://animeav1.com",
+  otakustv: "https://www1.otakustv.com",
+  animeflv: "https://www3.animeflv.net",
 };
