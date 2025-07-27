@@ -75,7 +75,6 @@ export default function SearchPage() {
   );
 
   return (
-    <Suspense>
       <div className="max-w-6xl mx-auto px-4 pt-12">
         {query ? (
           <div className="flex flex-col items-center text-[var(--foreground)] mb-4">
@@ -164,6 +163,5 @@ export default function SearchPage() {
         )}
         
       </div>
-    </Suspense>
   );
 }
