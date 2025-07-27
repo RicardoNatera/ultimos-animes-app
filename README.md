@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+# Push Anime
 
-First, run the development server:
+**Push Anime** es una aplicación web que centraliza los episodios más recientes de anime publicados en tres de los portales más populares en español(Para mi): [AnimeFLV](https://www3.animeflv.net), [OtakusTV](https://www1.otakustv.com) y [AnimeAV1](https://animeav1.com).  
+Permite explorar, buscar y filtrar animes por fuente en una sola plataforma, con una interfaz moderna, rápida y responsive.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+🔴 **Ya disponible en producción:**  
+👉 https://pushanime.vercel.app/
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🚀 ¿Qué hace esta app?
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- ✅ Muestra los **episodios más recientes** de anime de tres sitios diferentes.
+- 🔍 Permite realizar **búsquedas unificadas** por título.
+- 🎛️ Filtra resultados por fuente.
+- 🌙 Incluye **modo oscuro automático** basado en el sistema o la preferencia del usuario.
+- ⚡ Renderizado rápido, diseño responsive y experiencia optimizada tanto para escritorio como móvil.
+- 🧠 Evita duplicados entre sitios gracias a lógica inteligente de comparación de títulos y episodios.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 🛠️ Tecnologías utilizadas
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Next.js 15** con App Router
+- **React 19**
+- **Tailwind CSS** para estilos
+- **Cheerio** para web scraping
+- **TypeScript** para tipado estricto
+- **Vercel** para despliegue continuo
+- **Google Fonts** (Geist y Geist Mono)
+- SEO optimizado con metadatos, favicon, `robots.txt` y `sitemap.xml`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## ✨ Próximas mejoras
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- [ ] Soporte para favoritos con cuenta de usuario
+- [ ] Notificaciones personalizadas para nuevos episodios
+- [ ] Mejoras en rendimiento con cache distribuido
+- [ ] Estadísticas por anime y popularidad cruzada entre sitios
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 📄 Licencia
+
+Este proyecto es solo para fines educativos y de exploración. No aloja ni redistribuye ningún contenido audiovisual.  
+Todos los derechos pertenecen a sus respectivos dueños.
+
+---
+
+Hecho con 💙 por [mi](https://linkedin.com/in/natera-dev)
