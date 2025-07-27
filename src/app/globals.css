@@ -12,9 +12,13 @@
   --border: #ddd;
   --hover: #f0f0f0;
 
-  --badge-bg: #ffffff;        
-  --badge-fg: #000000;    
-  
+  --badge-bg: #ffffff;
+  --badge-fg: #000000;
+
+  --scroll-thumb: #cccccc;          /* Gris suave para el thumb */
+  --scroll-thumb-hover: #999999;    /* Más oscuro al hacer hover */
+  --scroll-track: transparent;
+
   --cat-sprite: url('/JumpCat.png');
 }
 
@@ -39,6 +43,10 @@
   --badge-bg: #000000;
   --badge-fg: #ffffff;
 
+  --scroll-thumb: #4fc3f7;          /* Thumb azul brillante */
+  --scroll-thumb-hover: #81d4fa;    /* Azul celeste claro */
+  --scroll-track: transparent;
+
   --cat-sprite: url('/JumpCatBlack.png');
 }
 
@@ -46,4 +54,25 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Scrollbar general */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scroll-thumb-hover);
 }

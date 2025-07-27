@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { searchFromAnimeFLV, searchFromOtakusTV, searchFromAnimeAV1 } from '@/lib/scrapers/search';
 import { SOURCES } from '@/types/sourceVars';
 import { AnimeResult } from '@/types/anime';
+import stringSimilarity from 'string-similarity';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -18,14 +19,26 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const results = await Promise.all([
-      selectedSources.includes(SOURCES.animeflv) ? searchFromAnimeFLV(query) : [],
-      selectedSources.includes(SOURCES.otakustv) ? searchFromOtakusTV(query) : [],
-      selectedSources.includes(SOURCES.animeav1) ? searchFromAnimeAV1(query) : [],
-    ]);
+    const promises: Promise<AnimeResult[]>[] = [];
 
+    if (selectedSources.includes(SOURCES.animeflv)) {
+      promises.push(searchFromAnimeFLV(query));
+    }
+    if (selectedSources.includes(SOURCES.otakustv)) {
+      promises.push(searchFromOtakusTV(query));
+    }
+    if (selectedSources.includes(SOURCES.animeav1)) {
+      promises.push(searchFromAnimeAV1(query));
+    }
+
+    const results = await Promise.all(promises);
     const allAnimes: AnimeResult[] = results.flat();
-    const sorted = allAnimes.sort((a, b) => a.title.localeCompare(b.title));
+
+    const sorted = allAnimes.sort((a, b) => {
+      const simA = stringSimilarity.compareTwoStrings(a.title.toLowerCase(), query.toLowerCase());
+      const simB = stringSimilarity.compareTwoStrings(b.title.toLowerCase(), query.toLowerCase());
+      return simB - simA; 
+    });
 
     return new Response(JSON.stringify(sorted), {
       status: 200,
