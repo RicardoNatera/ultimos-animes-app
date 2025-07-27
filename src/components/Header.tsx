@@ -24,9 +24,14 @@ export default function Header() {
         {/* Logo + Nombre */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <img
-            src="/icons/theme-blue.png"
+            src="/icons/logo.png"
             alt="Logo"
-            className="w-8 h-8 object-contain"
+            className="w-8 h-8 object-contain dark:hidden"
+          />
+          <img
+            src="/icons/logoWhite.png"
+            alt="Logo"
+            className="w-8 h-8 object-contain hidden dark:block"
           />
           <span className="text-lg font-semibold text-[var(--foreground)] hidden sm:inline">
             Push Anime

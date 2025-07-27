@@ -10,14 +10,14 @@ export default function Footer() {
           <figure>
             <Link href="/">
               <img
-                src="/icons/theme-blue.png"
+                src="/icons/logo.png"
                 alt="Logo"
                 width={40}
                 height={40}
                 className="dark:hidden"
               />
               <img
-                src="/icons/theme-orange.png"
+                src="/icons/logoWhite.png"
                 alt="Logo Dark"
                 width={40}
                 height={40}

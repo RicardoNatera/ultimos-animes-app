@@ -80,10 +80,6 @@ export default function SearchPage() {
           <h1 className="text-2xl font-semibold text-center break-words mb-2">
             Resultados para: <span className="text-blue-500">"{query}"</span>
           </h1>
-
-          <p className="text-sm text-center text-[var(--muted-foreground)] max-w-md px-4">
-            Mostrando solo la primera página de resultados por fuente. Para ver más, visite la web original.
-          </p>
         </div>
       ) : (
         <p className="text-center text-[var(--muted-foreground)] text-sm">
