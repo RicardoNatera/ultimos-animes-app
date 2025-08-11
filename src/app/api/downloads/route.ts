@@ -84,7 +84,7 @@ async function getAnimeAV1Downloads(url: string) {
     
     if (content && content.includes('downloads:')) {
       // Extraer el bloque "downloads":{...} con regex
-      const match = content.match(/downloads:(\{[^]*?\})\s*,\s*"uses":/);
+      const match = content.match(/downloads:\s*({[\s\S]*})\s*,\s*(?:\"uses\"|uses)\s*:/);
       if (match) {
       let jsonString = match[1];
       let aux = Array.from(jsonString)
