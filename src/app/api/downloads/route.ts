@@ -68,7 +68,18 @@ async function getAnimeFLVDownloads(url: string) {
 
 // Helper para scraping de animeav1
 async function getAnimeAV1Downloads(url: string) {
-  const res = await fetch(url);
+  console.log("hola")
+  const res = await fetch(url,{
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+      "Referer": "https://google.com",
+      "Cache-Control": "no-cache",
+    },
+  });
+  console.log("adios")
   const html = await res.text();
   const links: { label: string; url: string }[] = [];
 
