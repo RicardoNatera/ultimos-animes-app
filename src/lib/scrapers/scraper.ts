@@ -9,7 +9,7 @@ export function extractEpisodeNumber(text: string): number {
 
 export async function fetchAnimeFLVHTML(): Promise<string> {
   try {
-    const response = await axios.get("https://www3.animeflv.net/");
+    const response = await axios.get("https://www3.animeflv.net/",{headers: { 'X-Requested-With': 'XMLHttpRequest' }, withCredentials: true});
     return response.data;
   } catch (error) {
     console.error("Error al obtener el HTML de AnimeFLV:", error);
