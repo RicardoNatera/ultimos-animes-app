@@ -47,7 +47,6 @@ export async function fetchAnimeAV1HTML(): Promise<string> {
           "Cache-Control": "no-cache",
         },
       });
-      console.log("pase")
       return response.data;
     } catch (error) {
       console.error("Error al obtener el HTML de AnimeAV1:", error);
@@ -73,7 +72,7 @@ export function parseAnimeAV1(html: string) {
 
 export async function fetchOtakusTVHTML(): Promise<string> {
   try {
-    const response = await axios.get("https://www1.otakustv.com/");
+    const response = await axios.get("https://www.otakustv.net/");
     return response.data;
   } catch (error) {
     console.error("Error al obtener el HTML de OtakusTV:", error);
@@ -84,12 +83,15 @@ export async function fetchOtakusTVHTML(): Promise<string> {
 export function parseOtakusTV(html: string) {
     const $ = cheerio.load(html);
     const animes: ScrapedAnime[] = [];
-    $("div.pre").each((_, el) => {
-        const title = $(el).find('h2 a').text().trim();
-        const url = $(el).find('a').first().attr('href');
-        const imgElement = $(el).find('img');
-        const image = imgElement.attr('data-src') || imgElement.attr('src');
-        const episodeText = $(el).find(".bog").text().trim();
+    const firstSection = $("div.ul.x6").first();
+
+    firstSection.find("article.li").each((_, el) => {
+      
+        const title = $(el).find('h3.h a').text().trim();
+        const url = $(el).find("figure.i a").attr("href");
+        const imgElement = $(el).find("figure.i a img");
+        const image = imgElement.attr("data-src");
+        const episodeText = $(el).find("figure.i a u").text().trim();
         const episode = extractEpisodeNumber(episodeText);
 
         if (title && url && image) {

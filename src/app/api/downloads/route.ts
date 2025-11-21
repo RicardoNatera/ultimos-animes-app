@@ -2,37 +2,52 @@ import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 
 // Helper para scraping de otakustv
-async function getOtakusTVDownloads(originalUrl: string) {
+function extractLabel(url: string): string {
   try {
-    // Paso 1: Extraer partes de la URL
-    const url = new URL(originalUrl);
-    const parts = url.pathname.split("/").filter(Boolean); // ["anime", "kamitsubaki-shi-kensetsuchuu", "episodio-3"]
-    if (parts.length < 3 || parts[0] !== "anime") {
-      throw new Error("URL inválida para OtakusTV");
-    }
-    
-    const animeSlug = parts[1];
-    const episodeSlug = parts[2];
+    const { hostname } = new URL(url);
 
-    // Paso 2: Construir URL de descarga
-    const downloadUrl = `https://www1.otakustv.com/descargar/${animeSlug}/${episodeSlug}`;
+    // Quitar "www." si existe
+    const cleanHost = hostname.startsWith("www.")
+      ? hostname.slice(4)
+      : hostname;
 
-    // Paso 3: Scraping
-    const res = await fetch(downloadUrl);
+    // Tomar solo la primera parte
+    return cleanHost.split(".")[0].charAt(0).toUpperCase() + cleanHost.split(".")[0].slice(1);
+  } catch {
+    return "Descarga";
+  }
+}
+
+async function getOtakusTVDownloads(originalUrl: string) {
+  type DownloadEntry = [string, string];
+  try {
+    const res = await fetch(originalUrl);
     const html = await res.text();
     const $ = cheerio.load(html);
     const links: { label: string; url: string }[] = [];
+    
+    const downloadBtn = $('a.ep-btn.d');
+    const raw = downloadBtn.attr('data-dwn');
+    if (raw) {
+      const clean = raw.replace(/\\\//g, "/");
 
-    $(".bloque_download .row.ln_bottom").each((_, el) => {
-      const label = $(el).find(".col-sm-6.text-left").text().trim() || "Desconocido";
-      const anchor = $(el).find("a").attr("href");
-      if (anchor) {
+      let downloads: DownloadEntry[] = [];
+
+      try {
+        downloads = JSON.parse(clean) as DownloadEntry[];
+      } catch (err) {
+        console.error("Error al parsear data-dwn:", err);
+      }
+
+      const linksRaw = downloads.map(d => d[1]);
+      console.log(linksRaw)
+      for (const rawUrl of linksRaw) {
         links.push({
-          label: label || "Descarga",
-          url: anchor,
+          label: extractLabel(rawUrl),
+          url: rawUrl
         });
       }
-    });
+    }
 
     return links;
   } catch (err) {
@@ -68,7 +83,6 @@ async function getAnimeFLVDownloads(url: string) {
 
 // Helper para scraping de animeav1
 async function getAnimeAV1Downloads(url: string) {
-  console.log("hola")
   const res = await fetch(url,{
     headers: {
       "User-Agent":
@@ -79,7 +93,6 @@ async function getAnimeAV1Downloads(url: string) {
       "Cache-Control": "no-cache",
     },
   });
-  console.log("adios")
   const html = await res.text();
   const links: { label: string; url: string }[] = [];
 

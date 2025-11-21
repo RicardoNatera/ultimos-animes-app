@@ -14,7 +14,7 @@ export const SOURCE_PRIORITY: Record<string, number> = {
 
 export const SOURCE_ICONS: Record<SourceName, string> = {
   animeav1: "https://animeav1.com/favicon.ico",
-  otakustv: "https://www1.otakustv.com/favicon.ico",
+  otakustv: "https://i.imgur.com/gcSlWN5.png",
   animeflv: "https://www3.animeflv.net/favicon.ico",
 };
 
@@ -26,6 +26,6 @@ export const SOURCE_LOGOS = {
 
 export const SOURCE_LINKS: Record<SourceName, string> = {
   animeav1: "https://animeav1.com",
-  otakustv: "https://www1.otakustv.com",
+  otakustv: "https://www.otakustv.net",
   animeflv: "https://www3.animeflv.net",
 };
