@@ -51,7 +51,7 @@ export async function searchFromAnimeFLV(query: string): Promise<AnimeResult[]> 
 }
 
 export async function searchFromOtakusTV(query: string): Promise<AnimeResult[]> {
-  const searchUrl = `${SOURCE_LINKS.otakustv}/buscador?q=${encodeURIComponent(query)}`;
+  const searchUrl = `${SOURCE_LINKS.otakustv}/animes?buscar=${encodeURIComponent(query)}`;
   const results: AnimeResult[] = [];
 
   try {
@@ -66,12 +66,12 @@ export async function searchFromOtakusTV(query: string): Promise<AnimeResult[]> 
     }
 
     const $ = load(html);
-    $('div.mb-10').each((_, el) => {
-      const anchor = $(el).find('a');
-      const href = anchor.attr('href') || '';
-      const title = anchor.find('p').first().text().trim();
-      const img = anchor.find('img').attr('src') || '';
-      const description = anchor.attr('data-original-title')?.trim() || '';
+    $('article.li').each((_, el) => {
+      const anchor = $(el).find('figure.i a');
+      const href = anchor.attr('href')?.slice(1) || '';
+      const title = $(el).find('h3.h a').text().trim();
+      const img = $(el).find('figure.i a img').attr('data-src') || '';
+      const description = "Sin Descripción";
 
       if (href && title && img) {
         results.push({
