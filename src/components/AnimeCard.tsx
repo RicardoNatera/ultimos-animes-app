@@ -24,6 +24,7 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const isPremiere = episode === 0 || episode === 1;
 
   useEffect(() => {
     const fetchDownloads = async () => {
@@ -50,7 +51,12 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
   return (
     <div
       className="rounded-xl shadow-md overflow-visible p-3 w-full flex flex-col relative"
-      style={{ backgroundColor: "var(--panel)", color: "var(--foreground)" }}
+      style={{
+      backgroundColor: "var(--panel)",
+      color: "var(--foreground)",
+      border: isPremiere ? "3px solid gold" : "none",
+      boxShadow: isPremiere ? "0 0 10px rgba(255, 215, 0, 0.6)" : undefined
+    }}
     >
       <div className="relative w-full aspect-3/2">
         <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
@@ -83,6 +89,19 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
         >
           <span>{source.toUpperCase()}</span>
         </div>
+
+        {isPremiere && (
+          <span
+            className="text-[0.65rem] font-bold rounded-full mx-2 px-4 py-1 shadow-md"
+            style={{
+              background: "linear-gradient(90deg, #f6e27a, #f1c40f, #e2b007)",
+              color: "#fff",
+              border: "1px solid rgba(255, 215, 0, 0.8)"
+            }}
+          >
+            ESTRENO
+          </span>
+        )}
 
         <div className="ml-auto flex items-center">
           {loading && (
