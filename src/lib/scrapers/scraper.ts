@@ -7,9 +7,21 @@ export function extractEpisodeNumber(text: string): number {
   return match ? parseInt(match[0], 10) : 0; // si no encuentra, retorna 0
 }
 
+export function getDefaultScraperHeaders() {
+  return {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "Accept":
+      "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+    "Referer": "https://google.com",
+    "Cache-Control": "no-cache",
+  };
+}
+
 async function fetchAnimeFLVStatus(animeUrl: string): Promise<boolean> {
   try {
-    const res = await axios.get(animeUrl);
+    const res = await axios.get(animeUrl, {headers: getDefaultScraperHeaders()});
     const $ = cheerio.load(res.data);
 
     const statusText = $(".AnmStts").text().toLowerCase();
@@ -23,7 +35,7 @@ async function fetchAnimeFLVStatus(animeUrl: string): Promise<boolean> {
 
 export async function fetchAnimeFLVHTML(): Promise<string> {
   try {
-    const response = await axios.get("https://www3.animeflv.net/");
+    const response = await axios.get("https://www3.animeflv.net/", {headers: getDefaultScraperHeaders()});
     return response.data;
   } catch (error) {
     console.error("Error al obtener el HTML de AnimeFLV:", error);
@@ -70,7 +82,7 @@ export async function parseAnimeFLV(html: string) {
 }
 async function fetchAnimeAV1Status(animeUrl: string): Promise<boolean> {
   try {
-    const res = await axios.get(animeUrl);
+    const res = await axios.get(animeUrl, {headers: getDefaultScraperHeaders()});
     const $ = cheerio.load(res.data);
     // Buscamos el contenedor que tiene los spans con metadatos
     // Coincidimos por ".text-sm" porque las demás clases pueden variar
@@ -95,16 +107,7 @@ async function fetchAnimeAV1Status(animeUrl: string): Promise<boolean> {
 }
 export async function fetchAnimeAV1HTML(): Promise<string> {
   try {
-      const response = await axios.get("https://animeav1.com/",{
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-          "Referer": "https://google.com",
-          "Cache-Control": "no-cache",
-        },
-      });
+      const response = await axios.get("https://animeav1.com/", {headers: getDefaultScraperHeaders()});
       return response.data;
     } catch (error) {
       console.error("Error al obtener el HTML de AnimeAV1:", error);
@@ -135,7 +138,7 @@ export async function parseAnimeAV1(html: string) {
 
 export async function fetchOtakusTVHTML(): Promise<string> {
   try {
-    const response = await axios.get("https://www.otakustv.net/");
+    const response = await axios.get("https://www.otakustv.net/", {headers: getDefaultScraperHeaders()});
     return response.data;
   } catch (error) {
     console.error("Error al obtener el HTML de OtakusTV:", error);
