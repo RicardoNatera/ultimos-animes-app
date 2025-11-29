@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDefaultScraperHeaders, fetchAnimeAV1Status, fetchAnimeFLVStatus } from "@/lib/scrapers/scraper"
 import * as cheerio from "cheerio";
 
 // Helper para scraping de otakustv
@@ -21,7 +22,7 @@ function extractLabel(url: string): string {
 async function getOtakusTVDownloads(originalUrl: string) {
   type DownloadEntry = [string, string];
   try {
-    const res = await fetch(originalUrl);
+    const res = await fetch(originalUrl,{headers: getDefaultScraperHeaders()});
     const html = await res.text();
     const $ = cheerio.load(html);
     const links: { label: string; url: string }[] = [];
@@ -58,7 +59,8 @@ async function getOtakusTVDownloads(originalUrl: string) {
 
 // Helper para scraping de animeflv
 async function getAnimeFLVDownloads(url: string) {
-  const res = await fetch(url);
+  console.log(url)
+  const res = await fetch(url,{headers: getDefaultScraperHeaders()});
   const html = await res.text();
   const $ = cheerio.load(html);
   const links: { label: string; url: string }[] = [];
@@ -83,16 +85,7 @@ async function getAnimeFLVDownloads(url: string) {
 
 // Helper para scraping de animeav1
 async function getAnimeAV1Downloads(url: string) {
-  const res = await fetch(url,{
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-      "Referer": "https://google.com",
-      "Cache-Control": "no-cache",
-    },
-  });
+  const res = await fetch(url,{headers: getDefaultScraperHeaders()});
   const html = await res.text();
   const links: { label: string; url: string }[] = [];
 
@@ -144,6 +137,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const source = searchParams.get("source");
   const url = searchParams.get("url");
+  const urlFinished = searchParams.get("urlFinished");
 
   if (!source || !url) {
     return NextResponse.json({ error: "Missing source or url" }, { status: 400 });
@@ -152,15 +146,15 @@ export async function GET(req: NextRequest) {
   try {
     if (source === "animeav1") {
       const links = await getAnimeAV1Downloads(url);
-      return NextResponse.json({ success: true, links });
+      return NextResponse.json({ success: true, links, finished: urlFinished ? await fetchAnimeAV1Status(urlFinished) : false });
     }
     if (source === "animeflv") {
       const links = await getAnimeFLVDownloads(url);
-      return NextResponse.json({ success: true, links });
+      return NextResponse.json({ success: true, links, finished: urlFinished ? await fetchAnimeFLVStatus(urlFinished) : false});
     }
     if (source === "otakustv") {
       const links = await getOtakusTVDownloads(url);
-      return NextResponse.json({ success: true, links });
+      return NextResponse.json({ success: true, links, finished: false });
     }
 
     return NextResponse.json({ error: "Unsupported source" }, { status: 400 });

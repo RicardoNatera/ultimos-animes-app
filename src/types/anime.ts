@@ -7,6 +7,7 @@ export interface ScrapedAnime {
   episode: number;
   source: SourceName;
   finished: boolean;
+  setFinishedURL: string
 }
 
 export interface RankedAnime extends ScrapedAnime {

@@ -12,9 +12,10 @@ type Props = {
   episode: number;
   source: SourceName;
   finished: boolean;
+  setFinishedURL:string;
 };
 
-function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished }: Props) {
+function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setFinishedURL }: Props) {
   const badgeColor = source === "animeflv"
     ? "#facc15" // amarillo
     : source === "animeav1"
@@ -25,15 +26,17 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished }: Pr
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFinished, setIsFinished] = useState(finished)
   const isPremiere = episode === 0 || episode === 1;
   
   useEffect(() => {
     const fetchDownloads = async () => {
       try {
-        const res = await fetch(`/api/downloads?source=${source}&url=${encodeURIComponent(sourceUrl)}`);
+        const res = await fetch(`/api/downloads?source=${source}&url=${encodeURIComponent(sourceUrl)}&urlFinished=${setFinishedURL}`);
         const json = await res.json();
         if (json.success && json.links.length > 0) {
           setDownloads(json.links);
+          setIsFinished(json.finished)
           setError("");
         } else {
           setDownloads(null);
@@ -55,8 +58,8 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished }: Pr
       style={{
       backgroundColor: "var(--panel)",
       color: "var(--foreground)",
-      border: isPremiere ? "3px solid gold" : finished ? "3px solid red" : "none",
-      boxShadow: isPremiere ? "0 0 10px rgba(255, 215, 0, 0.6)" : finished ? "0 0 10px rgba(250, 50, 46, 0.6)" : undefined
+      border: isPremiere ? "3px solid gold" : isFinished ? "3px solid red" : "none",
+      boxShadow: isPremiere ? "0 0 10px rgba(255, 215, 0, 0.6)" : isFinished ? "0 0 10px rgba(250, 50, 46, 0.6)" : undefined
     }}
     >
       <div className="relative w-full aspect-3/2">
@@ -91,7 +94,7 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished }: Pr
           <span>{source.toUpperCase()}</span>
         </div>
         
-        {finished && (
+        {isFinished && (
           <span
             className="text-[0.65rem] font-bold rounded-full mx-2 px-2 py-1 shadow-md"
             style={{

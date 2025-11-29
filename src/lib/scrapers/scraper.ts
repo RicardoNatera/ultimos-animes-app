@@ -19,7 +19,7 @@ export function getDefaultScraperHeaders() {
   };
 }
 
-async function fetchAnimeFLVStatus(animeUrl: string): Promise<boolean> {
+export async function fetchAnimeFLVStatus(animeUrl: string): Promise<boolean> {
   try {
     const res = await axios.get(animeUrl, {headers: getDefaultScraperHeaders()});
     const $ = cheerio.load(res.data);
@@ -64,9 +64,10 @@ export async function parseAnimeFLV(html: string) {
       .toLowerCase()
       .normalize("NFD")                      // elimina tildes/acentos si los hubiera
       .replace(/[':!.,\-]/g, "")            // elimina caracteres especiales
-      .replace(/\s+/g, "-");                // reemplaza espacios por guiones
-    
-    const finished = await fetchAnimeFLVStatus(`https://www3.animeflv.net/anime/${cleanTitle}`);
+      .replace("½","12")
+      .replace("(","")
+      .replace(")","")
+      .replace(/\s+/g, "-")                // reemplaza espacios por guiones   
 
     animes.push({
       title,
@@ -74,18 +75,18 @@ export async function parseAnimeFLV(html: string) {
       image,
       source: "animeflv",
       episode,
-      finished
+      finished:false,
+      setFinishedURL:`https://www3.animeflv.net/anime/${cleanTitle}`
     });
   }
 
   return animes;
 }
-async function fetchAnimeAV1Status(animeUrl: string): Promise<boolean> {
+export async function fetchAnimeAV1Status(animeUrl: string): Promise<boolean> {
   try {
     const res = await axios.get(animeUrl, {headers: getDefaultScraperHeaders()});
     const $ = cheerio.load(res.data);
-    // Buscamos el contenedor que tiene los spans con metadatos
-    // Coincidimos por ".text-sm" porque las demás clases pueden variar
+    
     const metaContainer = $(".text-sm.flex.flex-wrap.items-center.gap-2").first();
 
     if (!metaContainer || metaContainer.length === 0) {
@@ -128,9 +129,7 @@ export async function parseAnimeAV1(html: string) {
       const image = `${imgSrc}`;
       const episode = parseInt($(el).find("span.font-bold.text-lead").text().trim()) || 0;
 
-      const finished = title ? await fetchAnimeAV1Status(url):false;
-
-      if(title) animes.push({title,url,image,source:"animeav1",episode,finished})
+      if(title) animes.push({title,url,image,source:"animeav1",episode,finished:false,setFinishedURL:url})
     };
 
     return animes;
@@ -161,7 +160,7 @@ export function parseOtakusTV(html: string) {
         const episode = extractEpisodeNumber(episodeText);
 
         if (title && url && image) {
-          animes.push({ title, url, image, source:"otakustv",episode,finished:false});
+          animes.push({ title, url, image, source:"otakustv",episode,finished:false,setFinishedURL:""});
         }
     });
 
