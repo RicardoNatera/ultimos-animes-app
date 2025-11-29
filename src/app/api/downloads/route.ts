@@ -40,7 +40,7 @@ async function getOtakusTVDownloads(originalUrl: string) {
       }
 
       const linksRaw = downloads.map(d => d[1]);
-      console.log(linksRaw)
+
       for (const rawUrl of linksRaw) {
         links.push({
           label: extractLabel(rawUrl),

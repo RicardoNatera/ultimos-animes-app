@@ -57,6 +57,7 @@ export default function HomeClient() {
                 episode={anime.episode}
                 source={anime.source}
                 sourceUrl={anime.url}
+                finished={anime.finished}
                 />
             ))}
           </section>

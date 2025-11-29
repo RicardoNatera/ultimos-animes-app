@@ -11,9 +11,10 @@ type Props = {
   sourceUrl: string;
   episode: number;
   source: SourceName;
+  finished: boolean;
 };
 
-function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
+function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished }: Props) {
   const badgeColor = source === "animeflv"
     ? "#facc15" // amarillo
     : source === "animeav1"
@@ -25,7 +26,7 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const isPremiere = episode === 0 || episode === 1;
-
+  
   useEffect(() => {
     const fetchDownloads = async () => {
       try {
@@ -54,8 +55,8 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
       style={{
       backgroundColor: "var(--panel)",
       color: "var(--foreground)",
-      border: isPremiere ? "3px solid gold" : "none",
-      boxShadow: isPremiere ? "0 0 10px rgba(255, 215, 0, 0.6)" : undefined
+      border: isPremiere ? "3px solid gold" : finished ? "3px solid red" : "none",
+      boxShadow: isPremiere ? "0 0 10px rgba(255, 215, 0, 0.6)" : finished ? "0 0 10px rgba(250, 50, 46, 0.6)" : undefined
     }}
     >
       <div className="relative w-full aspect-3/2">
@@ -89,6 +90,19 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode }: Props) {
         >
           <span>{source.toUpperCase()}</span>
         </div>
+        
+        {finished && (
+          <span
+            className="text-[0.65rem] font-bold rounded-full mx-2 px-2 py-1 shadow-md"
+            style={{
+              background: "linear-gradient(90deg, #020024, #B80B19, #FF001A)",
+              color: "#fff",
+              border: "1px solid rgba(250, 50, 46, 0.8)"
+            }}
+          >
+            FINALIZADO
+          </span>
+        )}
 
         {isPremiere && (
           <span
