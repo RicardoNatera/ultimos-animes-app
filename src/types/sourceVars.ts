@@ -8,8 +8,8 @@ export type SourceName = keyof typeof SOURCES;
 
 export const SOURCE_PRIORITY: Record<string, number> = {
   [SOURCES.animeav1]: 0,
-  [SOURCES.otakustv]: 1,
-  [SOURCES.animeflv]: 2,
+  [SOURCES.animeflv]: 1,
+  [SOURCES.otakustv]: 2,
 };
 
 export const SOURCE_ICONS: Record<SourceName, string> = {
