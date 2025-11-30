@@ -2,6 +2,8 @@ import axios from "axios";
 import * as cheerio from 'cheerio';
 import { ScrapedAnime } from "@/types/anime";
 
+
+
 export function extractEpisodeNumber(text: string): number {
   const match = text.match(/\d+/); // busca el primer número en la cadena
   return match ? parseInt(match[0], 10) : 0; // si no encuentra, retorna 0
@@ -165,4 +167,50 @@ export function parseOtakusTV(html: string) {
     });
 
     return animes;
+}
+
+export async function fetchSchedule() {
+  try {
+    const { data: html } = await axios.get("https://www.animecount.com/calendario", {
+      headers:getDefaultScraperHeaders(),
+    });
+    
+    const $ = cheerio.load(html);
+    const result: Record<
+      string,
+      { title: string; url: string; image: string }[]
+    > = {};
+    
+    
+    $('section.bg-white').each((i, section) => {
+      
+      const day = $(section).find('h2 span').first().text().trim();
+      if(day)
+        result[day] = [];
+      
+      $(section).find('a.group').each((_, animeEl) => {
+        if(day){
+          const title = $(animeEl).find('h3').text().trim();
+          const url = $(animeEl).attr('href') || "";
+          const image = $(animeEl).find('img').attr('src')  || "";
+            
+          result[day].push({
+            title,
+            url,
+            image,
+          });
+        }
+      });
+    });
+    return Response.json({
+      success: true,
+      schedule: result,
+    });
+  } catch (error) {
+    console.error("Error scraping Anichart:", error);
+    return Response.json(
+      { success: false, error: "Error al obtener datos de Anichart" },
+      { status: 500 }
+    );
+  }
 }

@@ -3,12 +3,37 @@
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function Header() {
   const [query, setQuery] = useState('');
   const router = useRouter();
+  const [schedule, setSchedule] = useState(null);
+
+  useEffect(() => {
+    const loadSchedule = async () => {
+      try {
+        const res = await fetch("/api/schedule");
+        const json = await res.json();
+
+        if (json.response.success) {
+          setSchedule(json.response.schedule);
+        }
+      } catch (e) {
+        console.error("Error loading schedule", e);
+      }
+    };
+
+    loadSchedule();
+  }, []);
+
+  useEffect(() => {
+    if (schedule) {
+      console.log("Horario cargado:", schedule);
+    }
+  }, [schedule]);
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
