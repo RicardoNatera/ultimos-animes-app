@@ -37,6 +37,7 @@ export default function ScheduleClient() {
 
         if (json.response.success) {
           (window as any).__scheduleCache = json.response.schedule; // guardamos en cache global
+          console.log(json.response.schedule)
           setSchedule(json.response.schedule);
         } else {
           console.error("Error cargando horario:", json.response.error);

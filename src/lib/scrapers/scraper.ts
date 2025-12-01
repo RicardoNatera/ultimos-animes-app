@@ -1,8 +1,7 @@
 import axios from "axios";
 import * as cheerio from 'cheerio';
 import { ScrapedAnime } from "@/types/anime";
-
-
+import { formatInTimeZone } from "date-fns-tz";
 
 export function extractEpisodeNumber(text: string): number {
   const match = text.match(/\d+/); // busca el primer número en la cadena
@@ -170,7 +169,7 @@ export function parseOtakusTV(html: string) {
 }
 
 // schedule.ts
-type AnimeInfo = { title: string; url: string; image: string;type: string; episodes: number ; status: string; score: number };
+type AnimeInfo = { title: string; url: string; image: string; type: string; episodes: number ; status: string; score: number };
 type ScheduleRecord = Record<string, AnimeInfo[]>;
 
 const DAYS = [
@@ -183,14 +182,14 @@ const DAYS = [
   "sunday",
 ] as const;
 
-const DAY_TRANSLATION: Record<(typeof DAYS)[number], string> = {
-  monday: "Lunes",
-  tuesday: "Martes",
-  wednesday: "Miércoles",
-  thursday: "Jueves",
-  friday: "Viernes",
-  saturday: "Sábado",
-  sunday: "Domingo",
+const DAY_TRANSLATION: Record<string, string> = {
+  Sunday: "Domingo",
+  Monday: "Lunes",
+  Tuesday: "Martes",
+  Wednesday: "Miércoles",
+  Thursday: "Jueves",
+  Friday: "Viernes",
+  Saturday: "Sábado",
 };
 
 function sleep(ms: number) {
@@ -214,51 +213,83 @@ async function fetchJSONWithRetry(url: string, retries = 3, baseDelay = 1000): P
   }
 }
 
+function getLocalBroadcastDay(anime: any, fallbackDay: string) {
+  const broadcast = anime.broadcast || {};
+
+  // Si no hay datos suficientes → usar el día del request como fallback
+  if (!broadcast?.day || !broadcast?.time || !broadcast?.timezone) {
+    return { day: fallbackDay, time: "Desconocida" };
+  }
+
+  // Mapear día inglés → número (0=Sunday, 6=Saturday)
+  const dayMap: Record<string, number> = {
+    Sundays: 0,
+    Mondays: 1,
+    Tuesdays: 2,
+    Wednesdays: 3,
+    Thursdays: 4,
+    Fridays: 5,
+    Saturdays: 6,
+  };
+
+  const dayNum = dayMap[broadcast.day];
+  if (dayNum === undefined) {
+    return { day: fallbackDay, time: "Desconocida" };
+  }
+
+  // Crear fecha ficticia en JST con ese día y hora
+  const base = new Date(Date.UTC(2025, 0, 5 + dayNum, 0, 0)); // semana base estable
+  const [hour, minute] = broadcast.time.split(":").map(Number);
+  base.setUTCHours(hour - 9, minute, 0, 0); // ajustar desde JST a UTC
+
+  // Convertir a Caracas
+  const localDayEnglish = formatInTimeZone(base, "America/Caracas", "EEEE");
+  const localTime = formatInTimeZone(base, "America/Caracas", "HH:mm");
+
+  return { day: DAY_TRANSLATION[localDayEnglish], time: localTime };
+}
+
 async function getSchedule(): Promise<ScheduleRecord> {
   const result: ScheduleRecord = {};
 
   for (const day of DAYS) {
-    // espera 333ms entre cada request para no pasar de 3/s
     await sleep(333);
 
     const url = `https://api.jikan.moe/v4/schedules/${day}`;
     const json = await fetchJSONWithRetry(url);
-
     const data = Array.isArray(json.data) ? json.data : [];
 
-    // Filtrar para que NO aparezcan los de Kids ni los con rating "G - All Ages"
     const filtered = data.filter((anime: any) => {
-      // Excluir Kids
       const isKids = Array.isArray(anime.demographics) &&
                      anime.demographics.some((d: any) => d.name === "Kids");
-      // Excluir rating G - All Ages
       const isAllAges = anime.rating === "G - All Ages";
-
-      // Excluir rating PG - Children
       const isChildren = anime.rating === "PG - Children";
 
-      // Excluir duración menor a 5 min
       let minutes = 0;
       if (typeof anime.duration === "string") {
         const match = anime.duration.match(/(\d+)\s*min/);
-        if (match) {
-          minutes = parseInt(match[1], 10);
-        }
+        if (match) minutes = parseInt(match[1], 10);
       }
       const tooShort = minutes > 0 && minutes < 5;
 
       return !isKids && !isAllAges && !isChildren && !tooShort;
     });
 
-    result[DAY_TRANSLATION[day]] = filtered.map((anime: any) => ({
-      title: anime.title,
-      url: anime.url,
-      image: anime.images?.jpg?.image_url || anime.images?.webp?.image_url || "",
-      type: anime.type,
-      episodes: anime.episodes,
-      status:anime.status,
-      score:anime.score
-    }));
+    for (const anime of filtered) {
+      const fallbackDay = DAY_TRANSLATION[day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()];
+      const localBroadcast = getLocalBroadcastDay(anime, fallbackDay);
+
+      if (!result[localBroadcast.day]) result[localBroadcast.day] = [];
+      result[localBroadcast.day].push({
+        title: anime.title,
+        url: anime.url,
+        image: anime.images?.jpg?.image_url || anime.images?.webp?.image_url || "",
+        type: anime.type,
+        episodes: anime.episodes,
+        status: anime.status,
+        score: anime.score,
+      });
+    }
   }
 
   return result;
