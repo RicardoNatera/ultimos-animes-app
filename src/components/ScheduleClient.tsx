@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Loader from '@/components/Loader';
+import Loader from "@/components/Loader";
 
 const DAYS = [
   "Lunes",
@@ -10,7 +10,7 @@ const DAYS = [
   "Jueves",
   "Viernes",
   "Sábado",
-  "Domingo"
+  "Domingo",
 ];
 
 export default function ScheduleClient() {
@@ -25,15 +25,22 @@ export default function ScheduleClient() {
   useEffect(() => {
     async function load() {
       try {
+        // Si ya existe cache en memoria, úsalo
+        if ((window as any).__scheduleCache) {
+          setSchedule((window as any).__scheduleCache);
+          setLoading(false);
+          return;
+        }
+
         const res = await fetch("/api/schedule", { cache: "no-store" });
         const json = await res.json();
-        if(json.response.success){
-          console.log(json.response.schedule)
+
+        if (json.response.success) {
+          (window as any).__scheduleCache = json.response.schedule; // guardamos en cache global
           setSchedule(json.response.schedule);
-        }else{
+        } else {
           console.error("Error cargando horario:", json.response.error);
         }
-        
       } catch (err) {
         console.error("Error cargando horario:", err);
       } finally {
@@ -62,7 +69,7 @@ export default function ScheduleClient() {
         ))}
       </div>
 
-      {loading && <Loader/>}
+      {loading && <Loader />}
 
       {!loading && schedule && (
         <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -79,28 +86,24 @@ export default function ScheduleClient() {
                 className="w-full h-56 object-cover"
                 alt={anime.title}
               />
-
               <div className="p-3">
                 <div className="flex flex-wrap gap-2 mb-2">
                   <span className="text-xs bg-blue-600/40 px-2 py-1 rounded">
                     {anime.type ?? "TV Anime"} • {anime.episodes ?? "N/A"} ep
                   </span>
-                  
-                  {anime.status=="Currently Airing" ?
+                  {anime.status === "Currently Airing" ? (
                     <span className="text-xs bg-green-600/40 px-2 py-1 rounded">
                       {anime.status}
                     </span>
-                    :
+                  ) : (
                     <span className="text-xs bg-red-600/40 px-2 py-1 rounded">
                       {anime.status}
                     </span>
-                  }
-                  
+                  )}
                   <span className="text-xs bg-yellow-600/40 px-2 py-1 rounded">
                     ⭐ {anime.score ?? "N/A"}
                   </span>
                 </div>
-
                 <h2 className="font-semibold mt-2 leading-tight">
                   {anime.title}
                 </h2>
