@@ -209,7 +209,7 @@ export async function fetchSchedule() {
   } catch (error) {
     console.error("Error scraping Anichart:", error);
     return Response.json(
-      { success: false, error: "Error al obtener datos de Anichart" },
+      { success: false, error: "Error al obtener datos de animecount" },
       { status: 500 }
     );
   }

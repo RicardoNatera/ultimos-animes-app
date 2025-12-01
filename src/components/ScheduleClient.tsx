@@ -25,10 +25,15 @@ export default function ScheduleClient() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/schedule");
+        const res = await fetch("/api/schedule", { cache: "no-store" });
         const json = await res.json();
-        console.log(json.response.schedule)
-        setSchedule(json.response.schedule);
+        if(json.response.success){
+          console.log(json.response.schedule)
+          setSchedule(json.response.schedule);
+        }else{
+          console.error("Error cargando horario:", json.response.success);
+        }
+        
       } catch (err) {
         console.error("Error cargando horario:", err);
       } finally {
