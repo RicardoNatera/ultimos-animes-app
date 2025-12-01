@@ -1,39 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { Search } from 'lucide-react';
+import { Search, Calendar } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function Header() {
   const [query, setQuery] = useState('');
   const router = useRouter();
-  const [schedule, setSchedule] = useState(null);
-
-  useEffect(() => {
-    const loadSchedule = async () => {
-      try {
-        const res = await fetch("/api/schedule");
-        const json = await res.json();
-
-        if (json.response.success) {
-          setSchedule(json.response.schedule);
-        }
-      } catch (e) {
-        console.error("Error loading schedule", e);
-      }
-    };
-
-    loadSchedule();
-  }, []);
-
-  useEffect(() => {
-    if (schedule) {
-      console.log("Horario cargado:", schedule);
-    }
-  }, [schedule]);
-
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +20,8 @@ export default function Header() {
 
   return (
     <header className="w-full sticky top-0 z-40 border-b border-[var(--accent-border)] bg-[var(--panel)] shadow-sm backdrop-blur mb-5">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+
         {/* Logo + Nombre */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <img
@@ -63,10 +39,10 @@ export default function Header() {
           </span>
         </Link>
 
-        {/* Barra de búsqueda */}
+        {/* Barra de búsqueda — crece sin afectar la derecha */}
         <form
           onSubmit={handleSubmit}
-          className="flex items-center gap-2 flex-grow justify-center max-w-[280px] sm:max-w-sm md:max-w-md"
+          className="flex items-center gap-2 flex-grow max-w-[280px] sm:max-w-sm md:max-w-md mx-auto"
         >
           <input
             type="text"
@@ -86,13 +62,21 @@ export default function Header() {
           >
             <Search size={18} />
           </button>
-
         </form>
 
-        {/* Toggle de tema */}
-        <div className="shrink-0">
+        {/* DERECHA FIJA: calendario + toggle SIEMPRE PEGADOS */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            href="/schedule"
+            className="p-2 rounded-md hover:bg-[var(--hover)] transition-colors"
+            aria-label="Horario de emisión"
+          >
+            <Calendar size={20} className="text-[var(--foreground)]" />
+          </Link>
+
           <ThemeToggle />
         </div>
+
       </div>
     </header>
   );
