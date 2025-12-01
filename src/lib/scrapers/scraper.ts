@@ -172,7 +172,7 @@ export function parseOtakusTV(html: string) {
 export async function fetchSchedule() {
   try {
     const { data: html } = await axios.get("https://www.animecount.com/calendario", {
-      headers:getDefaultScraperHeaders(),
+      headers:{"Origin":"*"},
     });
     
     const $ = cheerio.load(html);
