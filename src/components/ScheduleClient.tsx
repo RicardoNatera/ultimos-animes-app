@@ -31,7 +31,7 @@ export default function ScheduleClient() {
           console.log(json.response.schedule)
           setSchedule(json.response.schedule);
         }else{
-          console.error("Error cargando horario:", json.response.success);
+          console.error("Error cargando horario:", json.response.error);
         }
         
       } catch (err) {
