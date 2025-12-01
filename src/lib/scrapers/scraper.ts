@@ -169,64 +169,78 @@ export function parseOtakusTV(html: string) {
     return animes;
 }
 
+// schedule.ts
+type AnimeInfo = { title: string; url: string; image: string };
+type ScheduleRecord = Record<string, AnimeInfo[]>;
+
+const DAYS = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+
+const DAY_TRANSLATION: Record<(typeof DAYS)[number], string> = {
+  monday: "Lunes",
+  tuesday: "Martes",
+  wednesday: "Miércoles",
+  thursday: "Jueves",
+  friday: "Viernes",
+  saturday: "Sábado",
+  sunday: "Domingo",
+};
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function fetchJSONWithRetry(url: string, retries = 3, baseDelay = 1000): Promise<any> {
+  let attempt = 0;
+  while (true) {
+    const res = await fetch(url);
+    if (res.status === 429) {
+      if (attempt >= retries) throw new Error(`429 after ${retries} retries: ${url}`);
+      const wait = baseDelay * Math.pow(2, attempt); // 1s, 2s, 4s
+      console.warn(`Rate limited on ${url}, retrying in ${wait}ms...`);
+      await sleep(wait);
+      attempt++;
+      continue;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
+    return res.json();
+  }
+}
+
+async function getSchedule(): Promise<ScheduleRecord> {
+  const result: ScheduleRecord = {};
+
+  for (const day of DAYS) {
+    // espera 400ms entre cada request para no pasar de 3/s
+    await sleep(400);
+
+    const url = `https://api.jikan.moe/v4/schedules/${day}`;
+    const json = await fetchJSONWithRetry(url);
+
+    const data = Array.isArray(json.data) ? json.data : [];
+    result[DAY_TRANSLATION[day]] = data.map((anime: any) => ({
+      title: anime.title,
+      url: anime.url,
+      image: anime.images?.jpg?.image_url || anime.images?.webp?.image_url || "",
+    }));
+  }
+
+  return result;
+}
+
 export async function fetchSchedule() {
   try {
-    const { data: html } = await axios.get("https://www.animecount.com/calendario", {
-      headers:{
-        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        "Accept-Language":	'es-ES,es;q=0.9',
-        "Cookie":"user_identifier=eyJpdiI6IkhpQUZnV1hKYzdTSHFuUitYM29hd2c9PSIsInZhbHVlIjoiK2JxUTlJanI1ZFhSdTUxTnQySXBjMjFiVkVodkhibkh4SmZkZ2QxSnJMbXdjbStlS3VmQ3JSU3hQNDZTQUdVLzgybTQxTzk0aW5GYzF3ZnEwdVBCc1E9PSIsIm1hYyI6IjViYjJhYzFlZWNjODA4MWEwMGQ1ZjVhMTNiMWFlNjAyZWQxMDEzZDdkNGM1MzNlMmU2NmZjNzRkMjYyMzg1YjMiLCJ0YWciOiIifQ%3D%3D; XSRF-TOKEN=eyJpdiI6Ims5bWs0RXpzbEJINEVYVHdnS2xIYmc9PSIsInZhbHVlIjoiK2pkcGx2L2JpemYwU25XcFhrZjNrRlUvb2dMM29jVzhJd3dHcVVDWjdFaktFVjJxZ3pFR20ya05EN0NWY0xTNkF6bnBaZzB5czRoVDlOdU5jR1lJRXppYXZzRlVKRlpEYjdtTmNZRDVseUFlNUxmdktDQXpxWjlKNnNOWnR6U3UiLCJtYWMiOiJjNmQzOTcwMDI0OTY4NDUzZDEzN2FlODg0ZWQ0MWJjYWFlMjRhYjZmN2UwZmFmYjM2N2Q0ZDkwMWRlMjhjZTIzIiwidGFnIjoiIn0%3D; anime-count-session=eyJpdiI6Ii9BSERmUndJK1g1eVdsQTNpaDhydnc9PSIsInZhbHVlIjoiaHpXbzBrV3locW11ZjVQakcrNkQzbUhFOFFsZ0Rtc0lkd3pyK1RlQUVnN25CTUNRdnEzN2xBNzhBSGZRNUZQVjFaaVdMWnNmdU9SWVZJWkNxS1R3ZHd6OFVyZEFHeU1WSGh4UFdEUTFtcHZCRkNZOWMvaGRXVmliREpDT3hIOGYiLCJtYWMiOiIwMmU3ODc5ZjVmMDU5OWRkZjg3ODlmOThlZDJkYThiYjNiNzIxYWFlNTVlMjJmZjUzNDVmNTVlZWM1ZDRjMTFlIiwidGFnIjoiIn0%3D; cf_clearance=uo4P4JzJswGbRS3D5FUfZJfx0mXK5Rz_.o3ED.J5s9k-1764555245-1.2.1.1-4RlPRtkyyIrV8dKSB0W3SUVl0cFw0Rn2x09A32QmBdEMaYoE8vr9rO09FER4p79Go4KyHx4iQds.LXn0izWTgQ8cxm0vyEeKa.6GdZ5SlcQMV4sjhm3c73HJLE6o9GeCj0Jxm4U64PJnvS52bULNWW6AP_wnaUlffLdTJk5LpK.YIvM5OVku3fZ5Cgc5OxLdhinaJv404hx7nxix3KNLDJ2uRWbYjQ1MyYj3muAHwq0",
-        'Priority':	"u=0, i",
-        'Sec-Ch-Ua'	:'"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
-        'Sec-Ch-Ua-Mobile':	"?1",
-        'Sec-Ch-Ua-Platform':	"Android",
-        'Sec-Fetch-Dest':	"document",
-        'Sec-Fetch-Mode':	"navigate",
-        "Sec-Fetch-Site":"none",
-        'Sec-Fetch-User':	"?1",
-        'Upgrade-Insecure-Requests':	"1",
-        'User-Agent'	:'Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36',
-      },
-    });
-
-    const $ = cheerio.load(html);
-    const result: Record<
-      string,
-      { title: string; url: string; image: string }[]
-    > = {};
-    
-    
-    $('section.bg-white').each((_, section) => {
-      
-      const day = $(section).find('h2 span').first().text().trim();
-      if(day)
-        result[day] = [];
-      
-      $(section).find('a.group').each((_, animeEl) => {
-        if(day){
-          const title = $(animeEl).find('h3').text().trim();
-          const url = $(animeEl).attr('href') || "";
-          const image = $(animeEl).find('img').attr('src')  || "";
-            
-          result[day].push({
-            title,
-            url,
-            image,
-          });
-        }
-      });
-    });
-
-    return Response.json({
-      success: true,
-      schedule: result,
-    });
+    const schedule = await getSchedule();
+    return Response.json({ success: true, schedule });
   } catch (error) {
-
-    console.error("Error scraping animecount:", error);
-    return Response.json(
-      { success: false, error: "Error al obtener datos de animecount" },
-      { status: 500 }
-    );
+    console.error("Error scraping schedule:", error);
+    return Response.json({ success: false, error: "Error al obtener el horario" }, { status: 500 });
   }
 }

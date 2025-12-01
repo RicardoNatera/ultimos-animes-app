@@ -10,7 +10,7 @@ const DAYS = [
   "Jueves",
   "Viernes",
   "Sábado",
-  "Domingo",
+  "Domingo"
 ];
 
 export default function ScheduleClient() {
