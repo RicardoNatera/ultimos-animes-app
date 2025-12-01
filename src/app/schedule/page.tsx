@@ -14,7 +14,7 @@ export default function SchedulePage() {
           rel="noopener noreferrer"
           className="px-2 py-0.5 rounded-md bg-blue-600/20 dark:bg-blue-400/20 text-blue-700 dark:text-blue-300 font-medium hover:brightness-110 transition"
         >
-         Anime List
+         My Anime List
         </a>
       </p>
 

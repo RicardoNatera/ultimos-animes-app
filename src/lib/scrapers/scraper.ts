@@ -170,7 +170,7 @@ export function parseOtakusTV(html: string) {
 }
 
 // schedule.ts
-type AnimeInfo = { title: string; url: string; image: string };
+type AnimeInfo = { title: string; url: string; image: string;type: string; episodes: number ; status: string; score: number };
 type ScheduleRecord = Record<string, AnimeInfo[]>;
 
 const DAYS = [
@@ -218,17 +218,46 @@ async function getSchedule(): Promise<ScheduleRecord> {
   const result: ScheduleRecord = {};
 
   for (const day of DAYS) {
-    // espera 400ms entre cada request para no pasar de 3/s
-    await sleep(400);
+    // espera 333ms entre cada request para no pasar de 3/s
+    await sleep(333);
 
     const url = `https://api.jikan.moe/v4/schedules/${day}`;
     const json = await fetchJSONWithRetry(url);
 
     const data = Array.isArray(json.data) ? json.data : [];
-    result[DAY_TRANSLATION[day]] = data.map((anime: any) => ({
+
+    // Filtrar para que NO aparezcan los de Kids ni los con rating "G - All Ages"
+    const filtered = data.filter((anime: any) => {
+      // Excluir Kids
+      const isKids = Array.isArray(anime.demographics) &&
+                     anime.demographics.some((d: any) => d.name === "Kids");
+      // Excluir rating G - All Ages
+      const isAllAges = anime.rating === "G - All Ages";
+
+      // Excluir rating PG - Children
+      const isChildren = anime.rating === "PG - Children";
+
+      // Excluir duración menor a 5 min
+      let minutes = 0;
+      if (typeof anime.duration === "string") {
+        const match = anime.duration.match(/(\d+)\s*min/);
+        if (match) {
+          minutes = parseInt(match[1], 10);
+        }
+      }
+      const tooShort = minutes > 0 && minutes < 5;
+
+      return !isKids && !isAllAges && !isChildren && !tooShort;
+    });
+
+    result[DAY_TRANSLATION[day]] = filtered.map((anime: any) => ({
       title: anime.title,
       url: anime.url,
       image: anime.images?.jpg?.image_url || anime.images?.webp?.image_url || "",
+      type: anime.type,
+      episodes: anime.episodes,
+      status:anime.status,
+      score:anime.score
     }));
   }
 

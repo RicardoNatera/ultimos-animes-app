@@ -81,9 +81,25 @@ export default function ScheduleClient() {
               />
 
               <div className="p-3">
-                <span className="text-xs bg-gray-600/40 px-2 py-1 rounded mb-2 inline-block">
-                  {anime.type ?? "TV Anime"}
-                </span>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <span className="text-xs bg-blue-600/40 px-2 py-1 rounded">
+                    {anime.type ?? "TV Anime"} • {anime.episodes ?? "N/A"} ep
+                  </span>
+                  
+                  {anime.status=="Currently Airing" ?
+                    <span className="text-xs bg-green-600/40 px-2 py-1 rounded">
+                      {anime.status}
+                    </span>
+                    :
+                    <span className="text-xs bg-red-600/40 px-2 py-1 rounded">
+                      {anime.status}
+                    </span>
+                  }
+                  
+                  <span className="text-xs bg-yellow-600/40 px-2 py-1 rounded">
+                    ⭐ {anime.score ?? "N/A"}
+                  </span>
+                </div>
 
                 <h2 className="font-semibold mt-2 leading-tight">
                   {anime.title}
