@@ -27,6 +27,7 @@ export default function ScheduleClient() {
       try {
         const res = await fetch("/api/schedule");
         const json = await res.json();
+        console.log(json.response.schedule)
         setSchedule(json.response.schedule);
       } catch (err) {
         console.error("Error cargando horario:", err);
