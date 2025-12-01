@@ -172,9 +172,24 @@ export function parseOtakusTV(html: string) {
 export async function fetchSchedule() {
   try {
     const { data: html } = await axios.get("https://www.animecount.com/calendario", {
-      headers:{"Origin":"*"},
+      headers:{
+        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+"Accept-Language":	'es-ES,es;q=0.9',
+"Cookie":"user_identifier=eyJpdiI6IkhpQUZnV1hKYzdTSHFuUitYM29hd2c9PSIsInZhbHVlIjoiK2JxUTlJanI1ZFhSdTUxTnQySXBjMjFiVkVodkhibkh4SmZkZ2QxSnJMbXdjbStlS3VmQ3JSU3hQNDZTQUdVLzgybTQxTzk0aW5GYzF3ZnEwdVBCc1E9PSIsIm1hYyI6IjViYjJhYzFlZWNjODA4MWEwMGQ1ZjVhMTNiMWFlNjAyZWQxMDEzZDdkNGM1MzNlMmU2NmZjNzRkMjYyMzg1YjMiLCJ0YWciOiIifQ%3D%3D; XSRF-TOKEN=eyJpdiI6Ims5bWs0RXpzbEJINEVYVHdnS2xIYmc9PSIsInZhbHVlIjoiK2pkcGx2L2JpemYwU25XcFhrZjNrRlUvb2dMM29jVzhJd3dHcVVDWjdFaktFVjJxZ3pFR20ya05EN0NWY0xTNkF6bnBaZzB5czRoVDlOdU5jR1lJRXppYXZzRlVKRlpEYjdtTmNZRDVseUFlNUxmdktDQXpxWjlKNnNOWnR6U3UiLCJtYWMiOiJjNmQzOTcwMDI0OTY4NDUzZDEzN2FlODg0ZWQ0MWJjYWFlMjRhYjZmN2UwZmFmYjM2N2Q0ZDkwMWRlMjhjZTIzIiwidGFnIjoiIn0%3D; anime-count-session=eyJpdiI6Ii9BSERmUndJK1g1eVdsQTNpaDhydnc9PSIsInZhbHVlIjoiaHpXbzBrV3locW11ZjVQakcrNkQzbUhFOFFsZ0Rtc0lkd3pyK1RlQUVnN25CTUNRdnEzN2xBNzhBSGZRNUZQVjFaaVdMWnNmdU9SWVZJWkNxS1R3ZHd6OFVyZEFHeU1WSGh4UFdEUTFtcHZCRkNZOWMvaGRXVmliREpDT3hIOGYiLCJtYWMiOiIwMmU3ODc5ZjVmMDU5OWRkZjg3ODlmOThlZDJkYThiYjNiNzIxYWFlNTVlMjJmZjUzNDVmNTVlZWM1ZDRjMTFlIiwidGFnIjoiIn0%3D; cf_clearance=uo4P4JzJswGbRS3D5FUfZJfx0mXK5Rz_.o3ED.J5s9k-1764555245-1.2.1.1-4RlPRtkyyIrV8dKSB0W3SUVl0cFw0Rn2x09A32QmBdEMaYoE8vr9rO09FER4p79Go4KyHx4iQds.LXn0izWTgQ8cxm0vyEeKa.6GdZ5SlcQMV4sjhm3c73HJLE6o9GeCj0Jxm4U64PJnvS52bULNWW6AP_wnaUlffLdTJk5LpK.YIvM5OVku3fZ5Cgc5OxLdhinaJv404hx7nxix3KNLDJ2uRWbYjQ1MyYj3muAHwq0",
+'Priority':	"u=0, i",
+'Sec-Ch-Ua'	:'"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+'Sec-Ch-Ua-Mobile':	"?1",
+'Sec-Ch-Ua-Platform':	"Android",
+'Sec-Fetch-Dest':	"document",
+'Sec-Fetch-Mode':	"navigate",
+"Sec-Fetch-Site":"none",
+'Sec-Fetch-User':	"?1",
+'Upgrade-Insecure-Requests':	"1",
+'User-Agent'	:'Mozilla/5.0 (Linux; Android 13; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36',
+
+      },
     });
-    
+
     const $ = cheerio.load(html);
     const result: Record<
       string,
@@ -182,7 +197,7 @@ export async function fetchSchedule() {
     > = {};
     
     
-    $('section.bg-white').each((i, section) => {
+    $('section.bg-white').each((_, section) => {
       
       const day = $(section).find('h2 span').first().text().trim();
       if(day)
@@ -202,11 +217,13 @@ export async function fetchSchedule() {
         }
       });
     });
+
     return Response.json({
       success: true,
       schedule: result,
     });
   } catch (error) {
+
     console.error("Error scraping Anichart:", error);
     return Response.json(
       { success: false, error: "Error al obtener datos de animecount" },
