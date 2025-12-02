@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDefaultScraperHeaders, fetchAnimeAV1Status, fetchAnimeFLVStatus } from "@/lib/scrapers/scraper"
+import { getDefaultScraperHeaders, fetchAnimeAV1Status, fetchAnimeFLVStatus, fetchOtakusTVStatus } from "@/lib/scrapers/scraper"
 import * as cheerio from "cheerio";
 
 // Helper para scraping de otakustv
@@ -59,7 +59,6 @@ async function getOtakusTVDownloads(originalUrl: string) {
 
 // Helper para scraping de animeflv
 async function getAnimeFLVDownloads(url: string) {
-  console.log(url)
   const res = await fetch(url,{headers: getDefaultScraperHeaders()});
   const html = await res.text();
   const $ = cheerio.load(html);
@@ -154,7 +153,7 @@ export async function GET(req: NextRequest) {
     }
     if (source === "otakustv") {
       const links = await getOtakusTVDownloads(url);
-      return NextResponse.json({ success: true, links, finished: false });
+      return NextResponse.json({ success: true, links, finished: urlFinished ? await fetchOtakusTVStatus(urlFinished) : false });
     }
 
     return NextResponse.json({ error: "Unsupported source" }, { status: 400 });

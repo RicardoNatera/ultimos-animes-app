@@ -136,6 +136,19 @@ export async function parseAnimeAV1(html: string) {
     return animes;
 }
 
+export async function fetchOtakusTVStatus(animeUrl: string): Promise<boolean> {
+  try {
+    const res = await axios.get(animeUrl, {headers: getDefaultScraperHeaders()});
+    const $ = cheerio.load(res.data);
+    
+    const statusText = $(".st").text().toLowerCase();
+    // Ejemplo: "en emision" o "finalizado"
+    return statusText.includes("finalizado");
+  } catch (err) {
+    console.error(`Error obteniendo estado de ${animeUrl}`, err);
+    return false; // Por defecto no finalizado si hubo error
+  }
+}
 export async function fetchOtakusTVHTML(): Promise<string> {
   try {
     const response = await axios.get("https://www.otakustv.net/", {headers: getDefaultScraperHeaders()});
@@ -161,7 +174,10 @@ export function parseOtakusTV(html: string) {
         const episode = extractEpisodeNumber(episodeText);
 
         if (title && url && image) {
-          animes.push({ title, url, image, source:"otakustv",episode,finished:false,setFinishedURL:""});
+          let t = url;
+          t = t.slice(0, t.lastIndexOf("-"));
+          let result = t.slice(t.lastIndexOf("/") + 1);
+          animes.push({ title, url, image, source:"otakustv",episode,finished:false,setFinishedURL:`https://www.otakustv.net/anime/${result}`});
         }
     });
 
