@@ -107,7 +107,7 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
           </span>
         )}
 
-        {isPremiere && (
+        {isPremiere && !isFinished && (
           <span
             className="text-[0.65rem] font-bold rounded-full mx-2 px-4 py-1 shadow-md"
             style={{
