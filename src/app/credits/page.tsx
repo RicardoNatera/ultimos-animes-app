@@ -76,7 +76,7 @@ export default function creditsPage() {
 
       <div className="flex items-center space-x-4">
         <img
-          src="https://img.itch.zone/aW1nLzE3NzkzNDA2LnBuZw==/80x80%23/QLQjLp.png"
+          src="https://storage.ko-fi.com/cdn/useruploads/34fae4c3-c220-4e10-9344-9af5d2aa331f_8345513b-159c-4d17-8fd9-f47ec1eb93fc.png"
           alt="ToffeeCraft avatar"
           width={LOGO_SIZE}
           height={LOGO_SIZE}
