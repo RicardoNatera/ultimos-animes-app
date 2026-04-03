@@ -269,7 +269,6 @@ async function getSchedule(): Promise<ScheduleRecord> {
   const result: ScheduleRecord = {};
 
   for (const day of DAYS) {
-    await sleep(333);
 
     const url = `https://api.jikan.moe/v4/schedules/${day}`;
     const json = await fetchJSONWithRetry(url);
@@ -291,21 +290,33 @@ async function getSchedule(): Promise<ScheduleRecord> {
       return !isKids && !isAllAges && !isChildren && !tooShort;
     });
 
+    // Mapa para deduplicar por título en este día
+    const dayMap = new Map<string, any>();
+
     for (const anime of filtered) {
       const fallbackDay = DAY_TRANSLATION[day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()];
       const localBroadcast = getLocalBroadcastDay(anime, fallbackDay);
 
       if (!result[localBroadcast.day]) result[localBroadcast.day] = [];
-      result[localBroadcast.day].push({
-        title: anime.title,
-        url: anime.url,
-        image: anime.images?.jpg?.image_url || anime.images?.webp?.image_url || "",
-        type: anime.type,
-        episodes: anime.episodes,
-        status: anime.status,
-        score: anime.score,
-      });
+
+      // Solo agregar si no existe el título
+      if (!dayMap.has(anime.title)) {
+        const animeData = {
+          title: anime.title,
+          url: anime.url,
+          image: anime.images?.jpg?.image_url || anime.images?.webp?.image_url || "",
+          type: anime.type,
+          episodes: anime.episodes,
+          status: anime.status,
+          score: anime.score,
+        };
+        
+        dayMap.set(anime.title, animeData);
+        result[localBroadcast.day].push(animeData);
+      }
     }
+
+    await sleep(333);
   }
 
   return result;
