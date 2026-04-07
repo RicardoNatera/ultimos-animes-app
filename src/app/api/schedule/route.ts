@@ -4,7 +4,6 @@ export async function GET() {
   try {
     const result = await fetchSchedule();
     const response = await result.json()
-    //console.log("api",response)
     return Response.json({
       response
     });

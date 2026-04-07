@@ -270,24 +270,22 @@ async function getSchedule(): Promise<ScheduleRecord> {
 
   for (const day of DAYS) {
 
-    const url = `https://api.jikan.moe/v4/schedules/${day}`;
+    const url = `https://api.jikan.moe/v4/schedules/${day}?kids=false`;
     const json = await fetchJSONWithRetry(url);
     const data = Array.isArray(json.data) ? json.data : [];
 
     const filtered = data.filter((anime: any) => {
-      const isKids = Array.isArray(anime.demographics) &&
-                     anime.demographics.some((d: any) => d.name === "Kids");
-      const isAllAges = anime.rating === "G - All Ages";
-      const isChildren = anime.rating === "PG - Children";
+      const isAllAgesOrChildren =
+        anime.rating === "G - All Ages" ||
+        anime.rating === "PG - Children";
 
       let minutes = 0;
       if (typeof anime.duration === "string") {
         const match = anime.duration.match(/(\d+)\s*min/);
         if (match) minutes = parseInt(match[1], 10);
       }
-      const tooShort = minutes > 0 && minutes < 5;
 
-      return !isKids && !isAllAges && !isChildren && !tooShort;
+      return !isAllAgesOrChildren && (minutes === 0 || minutes >= 5);
     });
 
     // Mapa para deduplicar por título en este día
