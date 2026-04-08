@@ -212,13 +212,19 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function fetchJSONWithRetry(url: string, retries = 3, baseDelay = 1000): Promise<any> {
+async function fetchJSONWithRetry(
+  url: string,
+  retries = 3,
+  baseDelayMs = 500 
+): Promise<any> {
   let attempt = 0;
   while (true) {
     const res = await fetch(url);
     if (res.status === 429) {
-      if (attempt >= retries) throw new Error(`429 after ${retries} retries: ${url}`);
-      const wait = baseDelay * Math.pow(2, attempt); // 1s, 2s, 4s
+      if (attempt >= retries) {
+        throw new Error(`429 after ${retries} retries: ${url}`);
+      }
+      const wait = baseDelayMs * (attempt + 1); 
       console.warn(`Rate limited on ${url}, retrying in ${wait}ms...`);
       await sleep(wait);
       attempt++;
@@ -269,6 +275,7 @@ async function getSchedule(): Promise<ScheduleRecord> {
   const result: ScheduleRecord = {};
 
   for (const day of DAYS) {
+    await sleep(333);
 
     const url = `https://api.jikan.moe/v4/schedules/${day}?kids=false`;
     const json = await fetchJSONWithRetry(url);
@@ -280,7 +287,7 @@ async function getSchedule(): Promise<ScheduleRecord> {
         anime.rating === "PG - Children";
 
       let minutes = 0;
-      if (typeof anime.duration === "string") {
+      if (anime.duration && typeof anime.duration === "string") {
         const match = anime.duration.match(/(\d+)\s*min/);
         if (match) minutes = parseInt(match[1], 10);
       }
@@ -288,33 +295,35 @@ async function getSchedule(): Promise<ScheduleRecord> {
       return !isAllAgesOrChildren && (minutes === 0 || minutes >= 5);
     });
 
-    // Mapa para deduplicar por título en este día
     const dayMap = new Map<string, any>();
 
     for (const anime of filtered) {
-      const fallbackDay = DAY_TRANSLATION[day.charAt(0).toUpperCase() + day.slice(1).toLowerCase()];
+      const fallbackDay = DAY_TRANSLATION[
+        day.charAt(0).toUpperCase() +
+        day.slice(1).toLowerCase()
+      ];
       const localBroadcast = getLocalBroadcastDay(anime, fallbackDay);
 
       if (!result[localBroadcast.day]) result[localBroadcast.day] = [];
 
-      // Solo agregar si no existe el título
       if (!dayMap.has(anime.title)) {
         const animeData = {
           title: anime.title,
           url: anime.url,
-          image: anime.images?.jpg?.image_url || anime.images?.webp?.image_url || "",
+          image:
+            anime.images?.jpg?.image_url ||
+            anime.images?.webp?.image_url ||
+            "",
           type: anime.type,
           episodes: anime.episodes,
           status: anime.status,
           score: anime.score,
         };
-        
+
         dayMap.set(anime.title, animeData);
         result[localBroadcast.day].push(animeData);
       }
     }
-
-    await sleep(333);
   }
 
   return result;
