@@ -2,7 +2,6 @@ import axios from "axios";
 import * as cheerio from 'cheerio';
 import { ScrapedAnime } from "@/types/anime";
 import { formatInTimeZone } from "date-fns-tz";
-import { enGB } from 'date-fns/locale/en-GB'
 
 export function extractEpisodeNumber(text: string): number {
   const match = text.match(/\d+/); // busca el primer número en la cadena
@@ -186,7 +185,7 @@ export function parseOtakusTV(html: string) {
 }
 
 // schedule.ts
-type AnimeInfo = { title: string; url: string; image: string; type: string; episodes: number ; status: string; score: number };
+type AnimeInfo = { title: string; url: string; image: string; type: string; episodes: number ; status: string; score: number, broadcastTime:string, period: string, };
 type ScheduleRecord = Record<string, AnimeInfo[]>;
 
 const DAYS = [
@@ -263,7 +262,7 @@ function getLocalBroadcastDay(anime: any, fallbackDay: string) {
   // Crear fecha ficticia en JST con ese día y hora
   const base = new Date(Date.UTC(2025, 0, 5 + dayNum, 0, 0)); // semana base estable
   const [hour, minute] = broadcast.time.split(":").map(Number);
-  base.setUTCHours(hour - 9, minute, 0, 0); // ajustar desde JST a UTC
+  base.setUTCHours(hour - 8, minute, 0, 0); // ajustar desde JST a UTC
 
   // Convertir a Caracas
   const localDayEnglish = formatInTimeZone(base, "America/Caracas", "EEEE");
