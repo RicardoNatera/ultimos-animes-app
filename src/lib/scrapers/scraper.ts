@@ -185,18 +185,9 @@ export function parseOtakusTV(html: string) {
 }
 
 // schedule.ts
+
 type AnimeInfo = { title: string; url: string; image: string; type: string; episodes: number ; status: string; score: number, broadcastTime:string, period: string, };
 type ScheduleRecord = Record<string, AnimeInfo[]>;
-
-const DAYS = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-] as const;
 
 const DAY_TRANSLATION: Record<string, string> = {
   Sunday: "Domingo",
@@ -234,41 +225,53 @@ async function fetchJSONWithRetry(
     return res.json();
   }
 }
+function normalizeBroadcastDay(day: string) {
+  return day.replace(/s$/i, "");
+}
 
-function getLocalBroadcastDay(anime: any, fallbackDay: string) {
-  const broadcast = anime.broadcast || {};
-
-  // Si no hay datos suficientes → usar el día del request como fallback
-  if (!broadcast?.day || !broadcast?.time || !broadcast?.timezone) {
+function getLocalBroadcastDay(broadcast: { day?: string; time?: string; timezone?: string },fallbackDay: string) {
+  
+  if (!broadcast.day || !broadcast.time || !broadcast.timezone) {
     return { day: fallbackDay, time: "Desconocida" };
   }
 
-  // Mapear día inglés → número (0=Sunday, 6=Saturday)
   const dayMap: Record<string, number> = {
-    Sundays: 0,
-    Mondays: 1,
-    Tuesdays: 2,
-    Wednesdays: 3,
-    Thursdays: 4,
-    Fridays: 5,
-    Saturdays: 6,
+    Sunday: 0,
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6,
   };
 
-  const dayNum = dayMap[broadcast.day];
+  const normalizedDay = normalizeBroadcastDay(broadcast.day);
+  const dayNum = dayMap[normalizedDay];
+
   if (dayNum === undefined) {
     return { day: fallbackDay, time: "Desconocida" };
   }
 
-  // Crear fecha ficticia en JST con ese día y hora
-  const base = new Date(Date.UTC(2025, 0, 5 + dayNum, 0, 0)); // semana base estable
   const [hour, minute] = broadcast.time.split(":").map(Number);
-  base.setUTCHours(hour - 8, minute, 0, 0); // ajustar desde JST a UTC
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return { day: fallbackDay, time: "Desconocida" };
+  }
 
-  // Convertir a Caracas
-  const localDayEnglish = formatInTimeZone(base, "America/Caracas", "EEEE");
-  const localTime = formatInTimeZone(base, "America/Caracas", "HH:mm");
+  const jstDate = new Date(Date.UTC(2025, 0, 5 + dayNum, hour - 9, minute));
+  const caracasDayEnglish = formatInTimeZone(jstDate, "America/Caracas", "EEEE");
+  const caracasTime = formatInTimeZone(jstDate, "America/Caracas", "HH:mm");
 
-  return { day: DAY_TRANSLATION[localDayEnglish], time: localTime };
+  const [caracasHour, caracasMinute] = caracasTime.split(":").map(Number);
+  const adjustedMinutes = caracasHour * 60 + caracasMinute + 60;
+
+  const finalHour = Math.floor((adjustedMinutes / 60) % 24);
+  const finalMinute = adjustedMinutes % 60;
+  const finalTime = `${String(finalHour).padStart(2, "0")}:${String(finalMinute).padStart(2, "0")}`;
+
+  return {
+    day: DAY_TRANSLATION[caracasDayEnglish],
+    time: finalTime,
+  };
 }
 
 const getPeriod = (timeStr: string): string => {
@@ -277,79 +280,87 @@ const getPeriod = (timeStr: string): string => {
   return hours >= 12 ? "PM" : "AM";              
 };
 
-async function getSchedule(): Promise<ScheduleRecord> {
-  const result: ScheduleRecord = {};
+async function fetchAllSchedulePages(): Promise<any[]> {
+  let allData: any[] = [];
+  let page = 1;
+  let hasNextPage = true;
 
-  for (const day of DAYS) {
-    await sleep(333);
-
-    const url = `https://api.jikan.moe/v4/schedules/${day}?kids=false`;
+  while (hasNextPage) {
+    await sleep(333); 
+    
+    const url = `https://api.jikan.moe/v4/schedules?kids=false&page=${page}`;
     const json = await fetchJSONWithRetry(url);
-    const data = Array.isArray(json.data) ? json.data : [];
-
-    const filtered = data.filter((anime: any) => {
-      const isAllAgesOrChildren =
-        anime.rating === "G - All Ages" ||
-        anime.rating === "PG - Children";
-
-      let minutes = 0;
-      if (anime.duration && typeof anime.duration === "string") {
-        const match = anime.duration.match(/(\d+)\s*min/);
-        if (match) minutes = parseInt(match[1], 10);
-      }
-
-      return !isAllAgesOrChildren && (minutes === 0 || minutes >= 5);
-    });
-
-    const dayMap = new Map<string, any>();
-
-    for (const anime of filtered) {
-      const fallbackDay = DAY_TRANSLATION[
-        day.charAt(0).toUpperCase() +
-        day.slice(1).toLowerCase()
-      ];
-      const localBroadcast = getLocalBroadcastDay(anime, fallbackDay);
-
-      if (!result[localBroadcast.day]) result[localBroadcast.day] = [];
-
-      if (!dayMap.has(anime.title)) {
-        const animeData = {
-          title: anime.title,
-          url: anime.url,
-          image:
-            anime.images?.jpg?.image_url ||
-            anime.images?.webp?.image_url ||
-            "",
-          type: anime.type,
-          episodes: anime.episodes,
-          status: anime.status,
-          score: anime.score,
-          broadcastTime:localBroadcast.time,
-          period: getPeriod(localBroadcast.time),
-        };
-
-        dayMap.set(anime.title, animeData);
-        result[localBroadcast.day].push(animeData);
-      }
+    
+    if (!Array.isArray(json.data)) {
+      console.warn(`Página ${page} sin data válida, deteniendo paginación`);
+      break;
     }
+
+    allData.push(...json.data);
+    
+    const pagination = json.pagination;
+    hasNextPage = pagination.has_next_page;
+    page++;    
   }
 
-  Object.keys(result).forEach(day => {
-    result[day].sort((a: any, b: any) => {
-      // Convertir "HH:mm" a minutos totales para comparar numéricamente
-      const timeToMinutes = (timeStr: string): number => {
-        if (timeStr === "Desconocida") return 0;
-        const [hours, minutes] = timeStr.split(":").map(Number);
-        return hours * 60 + minutes;
-      };
-      
-      return timeToMinutes(a.broadcastTime) - timeToMinutes(b.broadcastTime);
-    });
-  });
-
-  return result;
+  return allData;
 }
 
+async function getSchedule(): Promise<ScheduleRecord> {
+  const result: ScheduleRecord = {};
+  const seen = new Set<number>();
+
+  const allAnimes = await fetchAllSchedulePages();
+
+  for (const anime of allAnimes) {
+    const isAllAgesOrChildren =
+      anime.rating === "G - All Ages" ||
+      anime.rating === "PG - Children";
+
+    let minutes = 0;
+    if (typeof anime.duration === "string") {
+      const match = anime.duration.match(/(\d+)\s*min/);
+      if (match) minutes = Number(match[1]);
+    }
+
+    if (isAllAgesOrChildren || (minutes !== 0 && minutes < 5)) continue;
+    if (!anime.broadcast?.day || !anime.broadcast?.time || !anime.broadcast?.timezone) continue;
+    if (seen.has(anime.mal_id)) continue;
+
+    const fallbackDay = "Desconocida";
+    const localBroadcast = getLocalBroadcastDay(anime.broadcast, fallbackDay);
+
+    const animeData: AnimeInfo = {
+      title: anime.title,
+      url: anime.url,
+      image: anime.images?.jpg?.image_url || anime.images?.webp?.image_url || "",
+      type: anime.type,
+      episodes: anime.episodes,
+      status: anime.status,
+      score: anime.score,
+      broadcastTime: localBroadcast.time,
+      period: getPeriod(localBroadcast.time),
+    };
+
+    seen.add(anime.mal_id);
+
+    if (!result[localBroadcast.day]) result[localBroadcast.day] = [];
+    result[localBroadcast.day].push(animeData);
+  }
+
+  for (const day of Object.keys(result)) {
+    result[day].sort((a, b) => {
+      const toMinutes = (t: string) => {
+        if (t === "Desconocida") return 0;
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m;
+      };
+      return toMinutes(a.broadcastTime) - toMinutes(b.broadcastTime);
+    });
+  }
+  
+  return result;
+}
 export async function fetchSchedule() {
   try {
     const schedule = await getSchedule();
