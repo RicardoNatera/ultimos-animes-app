@@ -75,19 +75,30 @@ export default function ScheduleClient() {
       {!loading && schedule && (
         <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {(schedule[selectedDay] || []).map((anime, i) => (
+            
             <a
               key={i}
               href={anime.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-[var(--panel)] rounded-xl overflow-hidden shadow hover:scale-[1.02] transition cursor-pointer"
+              className="bg-[var(--panel)] rounded-xl overflow-hidden shadow hover:scale-[1.02] transition cursor-pointer relative"
             >
+            <span
+              className="absolute top-2 right-2 text-xs font-bold rounded px-2 py-1 shadow-md"
+              style={{
+                backgroundColor: "var(--scroll-thumb)",
+                color: "var(--badge-fg)",
+              }}
+            >
+              {anime.broadcastTime} {anime.period}
+            </span>
               <img
                 src={anime.image}
                 className="w-full h-56 object-cover"
                 alt={anime.title}
               />
               <div className="p-3">
+                
                 <div className="flex flex-wrap gap-2 mb-2">
                   <span className="text-xs bg-blue-600/40 px-2 py-1 rounded">
                     {anime.type ?? "TV Anime"} • {anime.episodes ?? "N/A"} ep
@@ -104,6 +115,7 @@ export default function ScheduleClient() {
                   <span className="text-xs bg-yellow-600/40 px-2 py-1 rounded">
                     ⭐ {anime.score ?? "N/A"}
                   </span>
+                  
                 </div>
                 <h2 className="font-semibold mt-2 leading-tight">
                   {anime.title}

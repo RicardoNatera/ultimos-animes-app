@@ -2,6 +2,7 @@ import axios from "axios";
 import * as cheerio from 'cheerio';
 import { ScrapedAnime } from "@/types/anime";
 import { formatInTimeZone } from "date-fns-tz";
+import { enGB } from 'date-fns/locale/en-GB'
 
 export function extractEpisodeNumber(text: string): number {
   const match = text.match(/\d+/); // busca el primer número en la cadena
@@ -271,6 +272,12 @@ function getLocalBroadcastDay(anime: any, fallbackDay: string) {
   return { day: DAY_TRANSLATION[localDayEnglish], time: localTime };
 }
 
+const getPeriod = (timeStr: string): string => {
+  if (timeStr === "Desconocida") return "";
+  const [hours] = timeStr.split(":").map(Number); 
+  return hours >= 12 ? "PM" : "AM";              
+};
+
 async function getSchedule(): Promise<ScheduleRecord> {
   const result: ScheduleRecord = {};
 
@@ -318,6 +325,8 @@ async function getSchedule(): Promise<ScheduleRecord> {
           episodes: anime.episodes,
           status: anime.status,
           score: anime.score,
+          broadcastTime:localBroadcast.time,
+          period: getPeriod(localBroadcast.time),
         };
 
         dayMap.set(anime.title, animeData);
@@ -325,6 +334,19 @@ async function getSchedule(): Promise<ScheduleRecord> {
       }
     }
   }
+
+  Object.keys(result).forEach(day => {
+    result[day].sort((a: any, b: any) => {
+      // Convertir "HH:mm" a minutos totales para comparar numéricamente
+      const timeToMinutes = (timeStr: string): number => {
+        if (timeStr === "Desconocida") return 0;
+        const [hours, minutes] = timeStr.split(":").map(Number);
+        return hours * 60 + minutes;
+      };
+      
+      return timeToMinutes(a.broadcastTime) - timeToMinutes(b.broadcastTime);
+    });
+  });
 
   return result;
 }

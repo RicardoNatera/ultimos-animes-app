@@ -6,7 +6,7 @@ export default function SchedulePage() {
       <h1 className="text-3xl font-bold mb-4">Horario</h1>
 
       <p className="text-sm mb-6 p-3 bg-yellow-900/20 rounded border border-yellow-700/40">
-        <strong>Aviso:</strong> Los animes que se muestran aquí son referenciales
+        <strong>Aviso:</strong> Los anime y horarios que se muestran aquí son referenciales
         y pueden variar. {" "}
         <a
           href="https://myanimelist.net/anime/season"
