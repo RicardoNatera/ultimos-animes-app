@@ -203,28 +203,26 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function fetchJSONWithRetry(
-  url: string,
-  retries = 3,
-  baseDelayMs = 500 
-): Promise<any> {
+async function fetchJSONWithRetry(url: string, retries = 3, baseDelayMs = 500): Promise<any> {
   let attempt = 0;
   while (true) {
     const res = await fetch(url);
+    console.log(url)
     if (res.status === 429) {
-      if (attempt >= retries) {
-        throw new Error(`429 after ${retries} retries: ${url}`);
-      }
-      const wait = baseDelayMs * (attempt + 1); 
-      console.warn(`Rate limited on ${url}, retrying in ${wait}ms...`);
-      await sleep(wait);
+      if (attempt >= retries) throw new Error(`429 after ${retries} retries: ${url}`);
+      
+      const retryAfterMs = res.headers.get('retry-after');
+      const wait = retryAfterMs ? parseInt(retryAfterMs) * 1000 : baseDelayMs * Math.pow(2, attempt);
+      console.warn(`429 on ${url}, retrying in ${wait}ms (attempt ${attempt + 1}/${retries})`);
+      await sleep(Math.max(wait, 1000));  // Mínimo 1s en 429
       attempt++;
       continue;
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status} on ${url}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
     return res.json();
   }
 }
+
 function normalizeBroadcastDay(day: string) {
   return day.replace(/s$/i, "");
 }
@@ -282,27 +280,23 @@ const getPeriod = (timeStr: string): string => {
 
 async function fetchAllSchedulePages(): Promise<any[]> {
   let allData: any[] = [];
-  let page = 1;
-  let hasNextPage = true;
-
-  while (hasNextPage) {
-    await sleep(333); 
-    
-    const url = `https://api.jikan.moe/v4/schedules?kids=false&page=${page}`;
-    const json = await fetchJSONWithRetry(url);
-    
-    if (!Array.isArray(json.data)) {
-      console.warn(`Página ${page} sin data válida, deteniendo paginación`);
-      break;
-    }
-
-    allData.push(...json.data);
-    
-    const pagination = json.pagination;
-    hasNextPage = pagination.has_next_page;
-    page++;    
+  
+  // Primer request
+  const firstUrl = 'https://api.jikan.moe/v4/schedules?kids=false&page=1';
+  const firstJson = await fetchJSONWithRetry(firstUrl);
+  if (!Array.isArray(firstJson.data)) return [];
+  allData.push(...firstJson.data);
+  
+  const totalPages = firstJson.pagination.last_visible_page;
+  if (totalPages <= 1) return allData;
+  
+  // Requests secuenciales con sleep conservador (350ms > 333ms)
+  for (let page = 2; page <= totalPages; page++) {
+    const json = await fetchJSONWithRetry(`https://api.jikan.moe/v4/schedules?kids=false&page=${page}`);
+    allData.push(...(json.data || []));
+    if (page < totalPages) await sleep(350);  // Entre cada request
   }
-
+  
   return allData;
 }
 
