@@ -281,7 +281,7 @@ const getPeriod = (timeStr: string): string => {
 async function fetchAllSchedulePages(): Promise<any[]> {
   let allData: any[] = [];
   
-  // Primer request
+  // Primer request.
   const firstUrl = 'https://api.jikan.moe/v4/schedules?kids=false&page=1';
   const firstJson = await fetchJSONWithRetry(firstUrl);
   if (!Array.isArray(firstJson.data)) return [];
