@@ -39,7 +39,7 @@ function normalizeTitle(title: string): string {
 }
 async function getLatestFromSource(source: keyof typeof scrapers): Promise<ScrapedAnime[]> {
   try {
-    if(source=='animeflv') return [];
+    if(source=='animeflv') return []; //animeflv down
     const html = await scrapers[source].fetch();
     return scrapers[source].parse(html);
   } catch (err) {

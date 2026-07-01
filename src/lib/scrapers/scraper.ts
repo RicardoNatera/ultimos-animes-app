@@ -74,7 +74,7 @@ export async function parseAnimeFLV(html: string) {
       title,
       url,
       image,
-      source: "animeav1",
+      source: "animeflv",
       episode,
       finished:false,
       setFinishedURL:`https://www3.animeflv.net/anime/${cleanTitle}`
