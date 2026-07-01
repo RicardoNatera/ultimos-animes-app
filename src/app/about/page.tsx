@@ -46,7 +46,7 @@ export default function AboutPage() {
             className="rounded-md"
           />
           <a
-            href={SOURCE_LINKS.animeflv}
+            href="https://www3.animeflv.net"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 hover:underline"
