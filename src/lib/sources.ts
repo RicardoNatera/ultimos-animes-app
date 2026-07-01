@@ -9,10 +9,10 @@ import stringSimilarity from "string-similarity";
 
 const SIMILARITY_THRESHOLD = 0.8
 const scrapers = {
-  [SOURCES.animeflv]: {
+  /*[SOURCES.animeflv]: {
     fetch: fetchAnimeFLVHTML,
     parse: parseAnimeFLV,
-  },
+  },*/
   [SOURCES.animeav1]: {
     fetch: fetchAnimeAV1HTML,
     parse: parseAnimeAV1,
@@ -141,16 +141,15 @@ function groupNearbyEpisodes(animes: ScrapedAnime[]): ScrapedAnime[] {
 
 export async function reduceAnimes(): Promise<ScrapedAnime[]> {
   try {
-    const [animeAV1, otakusTV, animeFLV] = await Promise.all([
+    const [animeAV1, otakusTV, /*animeFLV*/] = await Promise.all([
       getLatestFromSource(SOURCES.animeav1),
       getLatestFromSource(SOURCES.otakustv),
-      getLatestFromSource(SOURCES.animeflv),
+      //getLatestFromSource(SOURCES.animeflv),
     ]);
-
     const sources: Record<SourceName, ScrapedAnime[]> = {
       animeav1: animeAV1,
       otakustv: otakusTV,
-      animeflv: animeFLV,
+      //animeflv: animeFLV,
     };
 
     const ranked = assignPseudoTimestampsInterleaved(sources);
