@@ -184,10 +184,48 @@ export function parseOtakusTV(html: string) {
     return animes;
 }
 
-// schedule.ts
+// ===============================
+// MyAnimeList Schedule Scraper
+// ===============================
 
-type AnimeInfo = { title: string; url: string; image: string; type: string; episodes: number ; status: string; score: number, broadcastTime:string, period: string, };
+type AnimeInfo = {
+  title: string;
+  url: string;
+  image: string;
+  type: string;
+  episodes: number | null;
+  status: string;
+  score: number | null;
+  broadcastTime: string;
+  period: string;
+};
+
 type ScheduleRecord = Record<string, AnimeInfo[]>;
+
+type MALScheduleAnime = {
+  malId: number;
+  title: string;
+  url: string;
+  image: string;
+  day: string;
+};
+
+type MALAnimeDetails = {
+  title: string;
+  url: string;
+  image: string;
+  type: string;
+  episodes: number | null;
+  status: string;
+  score: number | null;
+  rating: string | null;
+  duration: string | null;
+  broadcast: string | null;
+  aired: string | null;
+};
+
+const MAL_SCHEDULE_URL =
+  "https://myanimelist.net/anime/season/schedule";
 
 const DAY_TRANSLATION: Record<string, string> = {
   Sunday: "Domingo",
@@ -199,38 +237,303 @@ const DAY_TRANSLATION: Record<string, string> = {
   Saturday: "Sábado",
 };
 
+const MAL_DAYS = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
+
 function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchJSONWithRetry(url: string, retries = 3, baseDelayMs = 500): Promise<any> {
-  let attempt = 0;
-  while (true) {
-    const res = await fetch(url);
-    console.log(url)
-    if (res.status === 429) {
-      if (attempt >= retries) throw new Error(`429 after ${retries} retries: ${url}`);
-      
-      const retryAfterMs = res.headers.get('retry-after');
-      const wait = retryAfterMs ? parseInt(retryAfterMs) * 1000 : baseDelayMs * Math.pow(2, attempt);
-      console.warn(`429 on ${url}, retrying in ${wait}ms (attempt ${attempt + 1}/${retries})`);
-      await sleep(Math.max(wait, 1000));  // Mínimo 1s en 429
-      attempt++;
+/**
+ * Obtiene el HTML del calendario semanal de MyAnimeList.
+ */
+async function fetchMALScheduleHTML(): Promise<string> {
+  const response = await axios.get(MAL_SCHEDULE_URL, {
+    headers: getDefaultScraperHeaders(),
+    timeout: 15000,
+  });
+
+  return response.data;
+}
+
+/**
+ * Extrae los anime de:
+ *
+ * https://myanimelist.net/anime/season/schedule
+ *
+ * El calendario de MAL agrupa los anime por día.
+ */
+function parseMALSchedule(html: string): MALScheduleAnime[] {
+  const $ = cheerio.load(html);
+
+  const animes: MALScheduleAnime[] = [];
+  const seen = new Set<number>();
+
+  for (const day of MAL_DAYS) {
+    const dayContainer = $(
+      `.js-seasonal-anime-list-key-${day}`
+    ).first();
+
+    if (!dayContainer.length) {
+      console.warn(
+        `No se encontró el contenedor de MAL para ${day}`
+      );
       continue;
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
-    return res.json();
+
+    const cards = dayContainer
+      .find(".seasonal-anime")
+      .toArray();
+
+    for (const element of cards) {
+      const card = $(element);
+
+      // MAL marca los anime infantiles con la clase "kids".
+      // Los excluimos para mantener el comportamiento anterior
+      // de Jikan (?kids=false).
+      if (card.hasClass("kids")) {
+        continue;
+      }
+
+      const titleLink = card
+        .find("h2 a")
+        .first();
+
+      if (!titleLink.length) {
+        continue;
+      }
+
+      const title = titleLink.text().trim();
+      const url = titleLink.attr("href");
+
+      if (!title || !url) {
+        continue;
+      }
+
+      const malIdMatch = url.match(/\/anime\/(\d+)/);
+
+      if (!malIdMatch) {
+        console.warn(
+          `No se pudo obtener MAL ID de: ${url}`
+        );
+        continue;
+      }
+
+      const malId = Number(malIdMatch[1]);
+
+      if (seen.has(malId)) {
+        continue;
+      }
+
+      let image =
+        card.find("div.image img").attr("src") ||
+        card.find("div.image img").attr("data-src") ||
+        "";
+
+      // Algunas imágenes pueden venir en data-src.
+      if (!image) {
+        image =
+          card.find("img").attr("data-src") ||
+          card.find("img").attr("src") ||
+          "";
+      }
+
+      seen.add(malId);
+
+      animes.push({
+        malId,
+        title,
+        url,
+        image,
+        day,
+      });
+    }
   }
+
+  return animes;
 }
 
-function normalizeBroadcastDay(day: string) {
-  return day.replace(/s$/i, "");
+/**
+ * Obtiene el valor de un campo de información
+ * de la página individual de MAL.
+ *
+ * Ejemplo:
+ *
+ * <span>Broadcast:</span>
+ * Mondays at 00:00 (JST)
+ */
+function getMALInfoValue(
+  $: cheerio.CheerioAPI,
+  label: string
+): string | null {
+  const labelNode = $("span")
+    .filter((_, element) => {
+      return $(element).text().trim() === label;
+    })
+    .first();
+
+  if (!labelNode.length) {
+    return null;
+  }
+
+  const parent = labelNode.parent();
+
+  if (!parent.length) {
+    return null;
+  }
+
+  const value = parent
+    .text()
+    .replace(label, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return value || null;
 }
 
-function getLocalBroadcastDay(broadcast: { day?: string; time?: string; timezone?: string },fallbackDay: string) {
+/**
+ * Obtiene la información detallada de un anime de MAL.
+ */
+async function fetchMALAnimeDetails(
+  anime: MALScheduleAnime
+): Promise<MALAnimeDetails> {
+  const response = await axios.get(anime.url, {
+    headers: getDefaultScraperHeaders(),
+    timeout: 15000,
+  });
+
+  const $ = cheerio.load(response.data);
+
+  const title =
+    $('meta[property="og:title"]').attr("content")?.trim() ||
+    anime.title;
+
+  const image =
+    $('meta[property="og:image"]').attr("content") ||
+    anime.image;
+
+  const type =
+    getMALInfoValue($, "Type:") ||
+    "TV";
+
+  const episodesText =
+    getMALInfoValue($, "Episodes:");
+
+  const episodes =
+    episodesText &&
+    episodesText !== "Unknown" &&
+    /^\d+$/.test(episodesText)
+      ? Number(episodesText)
+      : null;
+
+  const status =
+    getMALInfoValue($, "Status:") ||
+    "Unknown";
+
+  const scoreElement = $(
+    'span[itemprop="ratingValue"]'
+  ).first();
+
+  const scoreText = scoreElement
+    .text()
+    .trim();
+
+  const score =
+    scoreText &&
+    scoreText !== "N/A" &&
+    !Number.isNaN(Number(scoreText))
+      ? Number(scoreText)
+      : null;
+
+  const rating =
+    getMALInfoValue($, "Rating:");
+
+  const duration =
+    getMALInfoValue($, "Duration:");
+
+  const broadcast =
+    getMALInfoValue($, "Broadcast:");
   
-  if (!broadcast.day || !broadcast.time || !broadcast.timezone) {
-    return { day: fallbackDay, time: "Desconocida" };
+  const aired = 
+    getMALInfoValue($, "Aired:");
+
+  return {
+    title,
+    url: anime.url,
+    image,
+    type,
+    episodes,
+    status,
+    score,
+    rating,
+    duration,
+    broadcast,
+    aired,
+  };
+}
+
+/**
+ * Convierte:
+ *
+ * Mondays at 00:00 (JST)
+ *
+ * en:
+ *
+ * { day: "Monday", time: "00:00" }
+ */
+function parseMALBroadcast(
+  broadcast: string | null
+): {
+  day: string;
+  time: string;
+} | null {
+  if (!broadcast) {
+    return null;
+  }
+
+  const match = broadcast.match(
+    /^(Sundays?|Mondays?|Tuesdays?|Wednesdays?|Thursdays?|Fridays?|Saturdays?)\s+at\s+(\d{1,2}):(\d{2})/i
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const day = match[1].replace(/s$/i, "");
+
+  const time = `${match[2].padStart(2, "0")}:${match[3]}`;
+
+  return {
+    day,
+    time,
+  };
+}
+
+/**
+ * Convierte el horario japonés a la zona horaria
+ * que utiliza actualmente tu aplicación.
+ *
+ * Tu código anterior utilizaba America/Caracas,
+ * así que mantenemos ese comportamiento.
+ */
+function getLocalBroadcastDay(
+  broadcast: string | null,
+  fallbackDay: string
+) {
+  const parsed = parseMALBroadcast(broadcast);
+
+  if (!parsed) {
+    return {
+      day: fallbackDay,
+      time: "Desconocida",
+    };
   }
 
   const dayMap: Record<string, number> = {
@@ -243,124 +546,224 @@ function getLocalBroadcastDay(broadcast: { day?: string; time?: string; timezone
     Saturday: 6,
   };
 
-  const normalizedDay = normalizeBroadcastDay(broadcast.day);
-  const dayNum = dayMap[normalizedDay];
+  const dayNum = dayMap[parsed.day];
 
   if (dayNum === undefined) {
-    return { day: fallbackDay, time: "Desconocida" };
+    return {
+      day: fallbackDay,
+      time: "Desconocida",
+    };
   }
 
-  const [hour, minute] = broadcast.time.split(":").map(Number);
-  if (Number.isNaN(hour) || Number.isNaN(minute)) {
-    return { day: fallbackDay, time: "Desconocida" };
+  const [hour, minute] = parsed.time
+    .split(":")
+    .map(Number);
+
+  if (
+    Number.isNaN(hour) ||
+    Number.isNaN(minute)
+  ) {
+    return {
+      day: fallbackDay,
+      time: "Desconocida",
+    };
   }
 
-  const jstDate = new Date(Date.UTC(2025, 0, 5 + dayNum, hour - 9, minute));
-  const caracasDayEnglish = formatInTimeZone(jstDate, "America/Caracas", "EEEE");
-  const caracasTime = formatInTimeZone(jstDate, "America/Caracas", "HH:mm");
+  /*
+   * Usamos una semana fija únicamente para poder
+   * hacer la conversión de zona horaria.
+   *
+   * El 5 de enero de 2025 fue domingo.
+   */
+  const jstDate = new Date(
+    Date.UTC(
+      2025,
+      0,
+      5 + dayNum,
+      hour - 9,
+      minute
+    )
+  );
 
-  const [caracasHour, caracasMinute] = caracasTime.split(":").map(Number);
-  const adjustedMinutes = caracasHour * 60 + caracasMinute + 60;
+  const localDay = formatInTimeZone(
+    jstDate,
+    "America/Caracas",
+    "EEEE"
+  );
 
-  const finalHour = Math.floor((adjustedMinutes / 60) % 24);
-  const finalMinute = adjustedMinutes % 60;
-  const finalTime = `${String(finalHour).padStart(2, "0")}:${String(finalMinute).padStart(2, "0")}`;
+  const localTime = formatInTimeZone(
+    jstDate,
+    "America/Caracas",
+    "HH:mm"
+  );
 
   return {
-    day: DAY_TRANSLATION[caracasDayEnglish],
-    time: finalTime,
+    day: DAY_TRANSLATION[localDay] || fallbackDay,
+    time: localTime,
   };
 }
 
-const getPeriod = (timeStr: string): string => {
-  if (timeStr === "Desconocida") return "";
-  const [hours] = timeStr.split(":").map(Number); 
-  return hours >= 12 ? "PM" : "AM";              
+const getPeriod = (
+  timeStr: string
+): string => {
+  if (timeStr === "Desconocida") {
+    return "";
+  }
+
+  const [hours] = timeStr
+    .split(":")
+    .map(Number);
+
+  return hours >= 12 ? "PM" : "AM";
 };
 
-async function fetchAllSchedulePages(): Promise<any[]> {
-  let allData: any[] = [];
-  
-  // Primer request
-  const firstUrl = 'https://api.jikan.moe/v4/schedules?kids=false&page=1';
-  const firstJson = await fetchJSONWithRetry(firstUrl);
-  if (!Array.isArray(firstJson.data)) return [];
-  allData.push(...firstJson.data);
-  
-  const totalPages = firstJson.pagination.last_visible_page;
-  if (totalPages <= 1) return allData;
-  
-  // Requests secuenciales con sleep conservador (350ms > 333ms)
-  for (let page = 2; page <= totalPages; page++) {
-    const json = await fetchJSONWithRetry(`https://api.jikan.moe/v4/schedules?kids=false&page=${page}`);
-    allData.push(...(json.data || []));
-    if (page < totalPages) await sleep(350);  // Entre cada request
+/**
+ * Fase 1: solo la lista de MAL (rápida, 1 petición).
+ */
+
+/**
+ * "Oct 5, 2026 to ?"  ->  "Oct 5, 2026"
+ * Devuelve null si MAL no tiene fecha.
+ */
+function parseAiredStart(aired: string | null): string | null {
+  if (!aired) return null;
+  const start = aired.split(" to ")[0].trim();
+  if (!start || start === "?" || start === "Not available") return null;
+  return start;
+}
+const MONTH_INDEX: Record<string, number> = {
+  Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+  Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+};
+
+/**
+ * Combina la fecha "Aired" (JST) con la hora de "Broadcast" (JST)
+ * y la convierte a America/Caracas.
+ *
+ * "Oct 3, 2026" + "Saturdays at 01:53 (JST)"  ->  "2026-10-02"
+ *
+ * - Fecha completa  -> devuelve "yyyy-MM-dd" (ya convertida)
+ * - Solo mes/año    -> devuelve el texto original (no se puede convertir)
+ */
+function getLocalAiredDate(
+  aired: string | null,
+  broadcast: string | null
+): string | null {
+  const start = parseAiredStart(aired);
+  if (!start) return null;
+
+  const full = start.match(/^([A-Z][a-z]{2}) (\d{1,2}), (\d{4})$/);
+  if (!full || MONTH_INDEX[full[1]] === undefined) {
+    return start; // formato parcial: se muestra tal cual
   }
-  
-  return allData;
+
+  const year = Number(full[3]);
+  const month = MONTH_INDEX[full[1]];
+  const day = Number(full[2]);
+
+  const parsed = parseMALBroadcast(broadcast);
+  const [hour, minute] = parsed
+    ? parsed.time.split(":").map(Number)
+    : [0, 0];
+
+  // JST = UTC+9. Date.UTC maneja bien las horas negativas
+  // (retrocede al día anterior automáticamente).
+  const utcDate = new Date(Date.UTC(year, month, day, hour - 9, minute));
+
+  return formatInTimeZone(utcDate, "America/Caracas", "yyyy-MM-dd");
+}
+const WEEKDAY_INDEX: Record<string, number> = {
+  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3,
+  Thursday: 4, Friday: 5, Saturday: 6,
+};
+
+/**
+ * Primera fecha (desde "Aired") que cae en el día de la semana del Broadcast,
+ * convertida a America/Caracas.
+ *
+ * "Oct 3, 2026" + "Mondays at 23:30 (JST)"  ->  "2026-10-05"
+ *
+ * Si hay streaming anticipado, "Aired" es anterior a la primera emisión
+ * en TV y esta función devuelve la fecha de esa primera emisión.
+ */
+function getFirstBroadcastDate(
+  aired: string | null,
+  broadcast: string | null
+): string | null {
+  const start = parseAiredStart(aired);
+  if (!start) return null;
+
+  const full = start.match(/^([A-Z][a-z]{2}) (\d{1,2}), (\d{4})$/);
+  if (!full || MONTH_INDEX[full[1]] === undefined) return null;
+
+  const parsed = parseMALBroadcast(broadcast);
+  if (!parsed) return null;
+
+  const target = WEEKDAY_INDEX[parsed.day];
+  if (target === undefined) return null;
+
+  const [hour, minute] = parsed.time.split(":").map(Number);
+
+  const year = Number(full[3]);
+  const month = MONTH_INDEX[full[1]];
+  const day = Number(full[2]);
+
+  // Días que faltan (0-6) desde la fecha "Aired" hasta el día de emisión
+  const airedWeekday = new Date(Date.UTC(year, month, day)).getUTCDay();
+  const diff = (target - airedWeekday + 7) % 7;
+
+  const utcDate = new Date(
+    Date.UTC(year, month, day + diff, hour - 9, minute)
+  );
+
+  return formatInTimeZone(utcDate, "America/Caracas", "yyyy-MM-dd");
+}
+export async function getScheduleList() {
+  const html = await fetchMALScheduleHTML();
+  return parseMALSchedule(html).map(({ malId, title, image, day }) => ({
+    malId,
+    title,
+    image,
+    day:
+      DAY_TRANSLATION[day.charAt(0).toUpperCase() + day.slice(1)] ??
+      "Desconocida",
+  }));
 }
 
-async function getSchedule(): Promise<ScheduleRecord> {
-  const result: ScheduleRecord = {};
-  const seen = new Set<number>();
+/**
+ * Fase 2: detalle de un anime (1 petición a su ficha de MAL).
+ * Devuelve null si hay que descartarlo.
+ */
+export async function getScheduleItem(malId: number) {
+  const url = `https://myanimelist.net/anime/${malId}`;
+  const details = await fetchMALAnimeDetails({
+    malId,
+    title: "",
+    url,
+    image: "",
+    day: "",
+  });
 
-  const allAnimes = await fetchAllSchedulePages();
-
-  for (const anime of allAnimes) {
-    const isAllAgesOrChildren =
-      anime.rating === "G - All Ages" ||
-      anime.rating === "PG - Children";
-
-    let minutes = 0;
-    if (typeof anime.duration === "string") {
-      const match = anime.duration.match(/(\d+)\s*min/);
-      if (match) minutes = Number(match[1]);
-    }
-
-    if (isAllAgesOrChildren || (minutes !== 0 && minutes < 5)) continue;
-    if (!anime.broadcast?.day || !anime.broadcast?.time || !anime.broadcast?.timezone) continue;
-    if (seen.has(anime.mal_id)) continue;
-
-    const fallbackDay = "Desconocida";
-    const localBroadcast = getLocalBroadcastDay(anime.broadcast, fallbackDay);
-
-    const animeData: AnimeInfo = {
-      title: anime.title,
-      url: anime.url,
-      image: anime.images?.jpg?.image_url || anime.images?.webp?.image_url || "",
-      type: anime.type,
-      episodes: anime.episodes,
-      status: anime.status,
-      score: anime.score,
-      broadcastTime: localBroadcast.time,
-      period: getPeriod(localBroadcast.time),
-    };
-
-    seen.add(anime.mal_id);
-
-    if (!result[localBroadcast.day]) result[localBroadcast.day] = [];
-    result[localBroadcast.day].push(animeData);
+  if (details.rating === "G - All Ages" || details.rating === "PG - Children") {
+    return null;
   }
+  if (!details.broadcast) return null;
 
-  for (const day of Object.keys(result)) {
-    result[day].sort((a, b) => {
-      const toMinutes = (t: string) => {
-        if (t === "Desconocida") return 0;
-        const [h, m] = t.split(":").map(Number);
-        return h * 60 + m;
-      };
-      return toMinutes(a.broadcastTime) - toMinutes(b.broadcastTime);
-    });
-  }
-  
-  return result;
-}
-export async function fetchSchedule() {
-  try {
-    const schedule = await getSchedule();
-    return Response.json({ success: true, schedule });
-  } catch (error) {
-    console.error("Error scraping schedule:", error);
-    return Response.json({ success: false, error: "Error al obtener el horario" }, { status: 500 });
-  }
+  const local = getLocalBroadcastDay(details.broadcast, "Desconocida");
+  if (local.time === "Desconocida") return null;
+
+  return {
+    day: local.day,
+    title: details.title,
+    url: details.url,
+    image: details.image,
+    type: details.type,
+    episodes: details.episodes,
+    status: details.status,
+    score: details.score,
+    airedFrom: getLocalAiredDate(details.aired, details.broadcast),
+    firstBroadcast: getFirstBroadcastDate(details.aired, details.broadcast),
+    broadcastTime: local.time,
+    period: getPeriod(local.time),
+  };
 }

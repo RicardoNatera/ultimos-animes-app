@@ -28,3 +28,8 @@
   transform-origin: center;
   image-rendering: pixelated;
 }
+/* Versión pequeña para barras de estado (sin agrandar) */
+.cat-loader--mini {
+  transform: none;
+  flex-shrink: 0;
+}
