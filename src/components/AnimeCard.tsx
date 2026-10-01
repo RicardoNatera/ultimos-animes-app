@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SOURCE_ICONS, SourceName } from "@/types/sourceVars";
 import DownloadModal from "@/components/DownloadModal";
 import { Download, Loader2, AlertCircle } from "lucide-react";
@@ -27,33 +27,59 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFinished, setIsFinished] = useState(finished)
+  const cardRef = useRef<HTMLDivElement>(null);
   const isPremiere = episode === 0 || episode === 1;
   
   useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+
+    let cancelled = false;
+
     const fetchDownloads = async () => {
       try {
-        const res = await fetch(`/api/downloads?source=${source}&url=${encodeURIComponent(sourceUrl)}&urlFinished=${setFinishedURL}`);
+        const res = await fetch(
+          `/api/downloads?source=${source}&url=${encodeURIComponent(sourceUrl)}&urlFinished=${encodeURIComponent(setFinishedURL)}`
+        );
         const json = await res.json();
+        if (cancelled) return;
+
         if (json.success && json.links.length > 0) {
           setDownloads(json.links);
-          setIsFinished(json.finished)
+          setIsFinished(json.finished);
           setError("");
         } else {
           setDownloads(null);
           setError("No se encontraron enlaces de descarga.");
         }
-      } catch (err) {
-        setError("Error al conectar con la fuente.");
+      } catch {
+        if (!cancelled) setError("Error al conectar con la fuente.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchDownloads();
-  }, [source, sourceUrl]);
+    // Solo pedimos los enlaces cuando la tarjeta está cerca de verse
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          observer.disconnect();
+          fetchDownloads();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+    observer.observe(el);
+
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [source, sourceUrl, setFinishedURL]);
 
   return (
     <div
+      ref={cardRef}
       className="rounded-xl shadow-md overflow-visible p-3 w-full flex flex-col relative"
       style={{
       backgroundColor: "var(--panel)",
@@ -67,6 +93,8 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
           <img
             src={imageUrl}
             alt={title}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover rounded-t-xl hover:brightness-95 transition cursor-pointer"
           />
         </a>

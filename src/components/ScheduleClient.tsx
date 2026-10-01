@@ -143,17 +143,17 @@ function StatusBadge({
 
   return <span className="text-xs bg-red-600/40 px-2 py-1 rounded">{status}</span>;
 }
-
+function todayName() {
+  const today = new Date().getDay();
+  return DAYS[(today + 6) % 7];
+}
 export default function ScheduleClient() {
   const [list, setList] = useState<Item[]>([]);
   const [details, setDetails] = useState<Record<number, Details | null>>({});
   const [loading, setLoading] = useState(true);
   const [done, setDone] = useState(0);
 
-  const [selectedDay, setSelectedDay] = useState(() => {
-    const today = new Date().getDay();
-    return DAYS[(today + 6) % 7];
-  });
+  const [selectedDay, setSelectedDay] = useState(todayName);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,7 +169,13 @@ export default function ScheduleClient() {
         setLoading(false); // ya se puede pintar el calendario
 
         // Fase 2: detalle de cada anime, 6 a la vez
-        await runPool<Item>(json.animes, 6, async (a) => {
+        const i = DAYS.indexOf(todayName());
+        const priority = new Set([DAYS[i], DAYS[(i + 1) % 7]]);
+        const ordered = [...json.animes].sort(
+          (a: Item, b: Item) => Number(priority.has(b.day)) - Number(priority.has(a.day))
+        );
+
+        await runPool<Item>(ordered, 6, async (a) => {
           try {
             const r = await fetch(`/api/schedule/${a.malId}`);
             if (!r.ok) return;
@@ -299,6 +305,8 @@ export default function ScheduleClient() {
                 src={anime.image}
                 className="w-full h-56 object-cover"
                 alt={anime.title}
+                loading="lazy"
+                decoding="async"
               />
               <div className="p-3">
                 {!anime.pending && (

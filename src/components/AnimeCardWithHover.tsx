@@ -17,6 +17,8 @@ export default function AnimeCardWithHover({ anime }: { anime: AnimeResult }) {
             <img
               src={anime.image}
               alt={anime.title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-64 object-cover rounded-xl transition duration-300 group-hover:brightness-110"
             />
             <img

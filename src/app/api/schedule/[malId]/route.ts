@@ -1,4 +1,7 @@
-import { getScheduleItem } from "@/lib/scrapers/scraper";
+import { getScheduleItem, isScheduledAnime } from "@/lib/scrapers/scraper";
+
+// Con reintentos, el peor caso es ~30 s (3 intentos de 10 s)
+export const maxDuration = 30;
 
 export async function GET(
   _req: Request,
@@ -10,8 +13,18 @@ export async function GET(
     return Response.json({ error: "id inválido" }, { status: 400 });
   }
 
+  const id = Number(malId);
+
   try {
-    const item = await getScheduleItem(Number(malId)); // puede ser null
+    // Solo ids que están en el calendario actual
+    if (!(await isScheduledAnime(id))) {
+      return Response.json(
+        { error: "anime fuera del calendario" },
+        { status: 404 }
+      );
+    }
+
+    const item = await getScheduleItem(id); // puede ser null
     return Response.json(
       { item },
       {

@@ -188,20 +188,6 @@ export function parseOtakusTV(html: string) {
 // MyAnimeList Schedule Scraper
 // ===============================
 
-type AnimeInfo = {
-  title: string;
-  url: string;
-  image: string;
-  type: string;
-  episodes: number | null;
-  status: string;
-  score: number | null;
-  broadcastTime: string;
-  period: string;
-};
-
-type ScheduleRecord = Record<string, AnimeInfo[]>;
-
 type MALScheduleAnime = {
   malId: number;
   title: string;
@@ -237,6 +223,11 @@ const DAY_TRANSLATION: Record<string, string> = {
   Saturday: "Sábado",
 };
 
+const WEEKDAY_INDEX: Record<string, number> = {
+  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3,
+  Thursday: 4, Friday: 5, Saturday: 6,
+};
+
 const MAL_DAYS = [
   "monday",
   "tuesday",
@@ -252,15 +243,56 @@ function sleep(ms: number) {
 }
 
 /**
+ * GET a una página de MAL con reintentos.
+ * Reintenta ante 429, errores 5xx y fallos de red/timeout.
+ */
+async function fetchMALPage(
+  url: string,
+  timeout = 10000,
+  retries = 2
+): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await axios.get<string>(url, {
+        headers: getDefaultScraperHeaders(),
+        timeout,
+      });
+
+      return response.data;
+    } catch (error) {
+      const axiosError = axios.isAxiosError(error) ? error : null;
+      const status = axiosError?.response?.status;
+
+      const retryable =
+        axiosError !== null &&
+        (status === undefined || status === 429 || status >= 500);
+
+      if (!retryable || attempt >= retries) {
+        throw error;
+      }
+
+      // Si MAL indica cuánto esperar, lo respetamos (máx. 5 s)
+      const retryAfter = Number(axiosError?.response?.headers?.["retry-after"]);
+
+      const delay =
+        Number.isFinite(retryAfter) && retryAfter > 0
+          ? Math.min(retryAfter * 1000, 5000)
+          : 500 * 2 ** attempt + Math.random() * 250;
+
+      console.warn(
+        `MAL ${status ?? "sin respuesta"} en ${url}. Reintento ${attempt + 1}/${retries} en ${Math.round(delay)} ms`
+      );
+
+      await sleep(delay);
+    }
+  }
+}
+
+/**
  * Obtiene el HTML del calendario semanal de MyAnimeList.
  */
 async function fetchMALScheduleHTML(): Promise<string> {
-  const response = await axios.get(MAL_SCHEDULE_URL, {
-    headers: getDefaultScraperHeaders(),
-    timeout: 15000,
-  });
-
-  return response.data;
+  return fetchMALPage(MAL_SCHEDULE_URL, 15000);
 }
 
 /**
@@ -402,23 +434,20 @@ function getMALInfoValue(
  * Obtiene la información detallada de un anime de MAL.
  */
 async function fetchMALAnimeDetails(
-  anime: MALScheduleAnime
+  malId: number
 ): Promise<MALAnimeDetails> {
-  const response = await axios.get(anime.url, {
-    headers: getDefaultScraperHeaders(),
-    timeout: 15000,
-  });
+  const url = `https://myanimelist.net/anime/${malId}`;
+  const html = await fetchMALPage(url);
 
-  const $ = cheerio.load(response.data);
+  const $ = cheerio.load(html);
 
   const title =
     $('meta[property="og:title"]').attr("content")?.trim() ||
-    anime.title;
+    "";
 
   const image =
     $('meta[property="og:image"]').attr("content") ||
-    anime.image;
-
+    "";
   const type =
     getMALInfoValue($, "Type:") ||
     "TV";
@@ -466,7 +495,7 @@ async function fetchMALAnimeDetails(
 
   return {
     title,
-    url: anime.url,
+    url: url,
     image,
     type,
     episodes,
@@ -536,17 +565,7 @@ function getLocalBroadcastDay(
     };
   }
 
-  const dayMap: Record<string, number> = {
-    Sunday: 0,
-    Monday: 1,
-    Tuesday: 2,
-    Wednesday: 3,
-    Thursday: 4,
-    Friday: 5,
-    Saturday: 6,
-  };
-
-  const dayNum = dayMap[parsed.day];
+  const dayNum = WEEKDAY_INDEX[parsed.day];
 
   if (dayNum === undefined) {
     return {
@@ -672,10 +691,6 @@ function getLocalAiredDate(
 
   return formatInTimeZone(utcDate, "America/Caracas", "yyyy-MM-dd");
 }
-const WEEKDAY_INDEX: Record<string, number> = {
-  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3,
-  Thursday: 4, Friday: 5, Saturday: 6,
-};
 
 /**
  * Primera fecha (desde "Aired") que cae en el día de la semana del Broadcast,
@@ -718,16 +733,59 @@ function getFirstBroadcastDate(
 
   return formatInTimeZone(utcDate, "America/Caracas", "yyyy-MM-dd");
 }
-export async function getScheduleList() {
-  const html = await fetchMALScheduleHTML();
-  return parseMALSchedule(html).map(({ malId, title, image, day }) => ({
-    malId,
-    title,
-    image,
-    day:
-      DAY_TRANSLATION[day.charAt(0).toUpperCase() + day.slice(1)] ??
-      "Desconocida",
-  }));
+type ScheduleListItem = {
+  malId: number;
+  title: string;
+  image: string;
+  day: string;
+};
+
+const LIST_TTL_MS = 60 * 60 * 1000; // 1 hora
+
+let listCache: { at: number; animes: ScheduleListItem[] } | null = null;
+let listInFlight: Promise<ScheduleListItem[]> | null = null;
+
+export async function getScheduleList(): Promise<ScheduleListItem[]> {
+  if (listCache && Date.now() - listCache.at < LIST_TTL_MS) {
+    return listCache.animes;
+  }
+
+  // Si ya hay una petición en curso, todos esperan la misma
+  if (!listInFlight) {
+    listInFlight = (async () => {
+      const html = await fetchMALScheduleHTML();
+
+      const animes = parseMALSchedule(html).map(
+        ({ malId, title, image, day }) => ({
+          malId,
+          title,
+          image,
+          day:
+            DAY_TRANSLATION[day.charAt(0).toUpperCase() + day.slice(1)] ??
+            "Desconocida",
+        })
+      );
+
+      // No cacheamos una lista vacía (MAL pudo cambiar o fallar)
+      if (animes.length > 0) {
+        listCache = { at: Date.now(), animes };
+      }
+
+      return animes;
+    })().finally(() => {
+      listInFlight = null;
+    });
+  }
+
+  return listInFlight;
+}
+
+/**
+ * Indica si un MAL ID forma parte de la lista actual del calendario.
+ */
+export async function isScheduledAnime(malId: number): Promise<boolean> {
+  const list = await getScheduleList();
+  return list.some((anime) => anime.malId === malId);
 }
 
 /**
@@ -735,14 +793,7 @@ export async function getScheduleList() {
  * Devuelve null si hay que descartarlo.
  */
 export async function getScheduleItem(malId: number) {
-  const url = `https://myanimelist.net/anime/${malId}`;
-  const details = await fetchMALAnimeDetails({
-    malId,
-    title: "",
-    url,
-    image: "",
-    day: "",
-  });
+  const details = await fetchMALAnimeDetails(malId);
 
   if (details.rating === "G - All Ages" || details.rating === "PG - Children") {
     return null;

@@ -49,9 +49,9 @@ export default function HomeClient() {
         ) : (
 
           <section className="grid gap-4 justify-items-center grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
-            {animes.map((anime, idx) => (
+            {animes.map((anime) => (
                 <AnimeCard
-                key={idx}
+                key={`${anime.source}-${anime.url}`}
                 title={anime.title}
                 imageUrl={anime.image}
                 episode={anime.episode}

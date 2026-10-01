@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDefaultScraperHeaders, fetchAnimeAV1Status, fetchAnimeFLVStatus, fetchOtakusTVStatus } from "@/lib/scrapers/scraper"
 import * as cheerio from "cheerio";
+import { SOURCE_LINKS, type SourceName } from "@/types/sourceVars";
 
 // Helper para scraping de otakustv
 function extractLabel(url: string): string {
@@ -131,6 +132,41 @@ async function getAnimeAV1Downloads(url: string) {
   return links;
 }
 
+// Quita "www." para tolerar variantes (www.otakustv.net / otakustv.net)
+const normalizeHost = (host: string) => host.replace(/^www\./, "");
+
+/**
+ * Solo permite URLs https que pertenezcan al dominio de la fuente indicada.
+ * Evita que alguien use /api/downloads para hacer que el servidor
+ * pida URLs arbitrarias (SSRF).
+ */
+function isAllowedUrl(source: string, raw: string | null): boolean {
+  if (!raw) return false;
+  if (!Object.prototype.hasOwnProperty.call(SOURCE_LINKS, source)) return false;
+
+  try {
+    const allowedHost = normalizeHost(
+      new URL(SOURCE_LINKS[source as SourceName]).hostname
+    );
+    const u = new URL(raw);
+    return u.protocol === "https:" && normalizeHost(u.hostname) === allowedHost;
+  } catch {
+    return false;
+  }
+}
+
+function ok(links: { label: string; url: string }[], finished: boolean) {
+  // Con enlaces: 10 min. Sin enlaces (episodio recién publicado): solo 1 min
+  const ttl = links.length > 0 ? 600 : 60;
+  return NextResponse.json(
+    { success: true, links, finished },
+    {
+      headers: {
+        "Cache-Control": `public, s-maxage=${ttl}, stale-while-revalidate=3600`,
+      },
+    }
+  );
+}
 export async function GET(req: NextRequest) {
     
   const { searchParams } = new URL(req.url);
@@ -142,18 +178,34 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing source or url" }, { status: 400 });
   }
 
+  if (
+    !isAllowedUrl(source, url) ||
+    (urlFinished && !isAllowedUrl(source, urlFinished))
+  ) {
+    return NextResponse.json({ error: "Invalid url" }, { status: 400 });
+  }
+
   try {
     if (source === "animeav1") {
-      const links = await getAnimeAV1Downloads(url);
-      return NextResponse.json({ success: true, links, finished: urlFinished ? await fetchAnimeAV1Status(urlFinished) : false });
+      const [links, finished] = await Promise.all([
+        getAnimeAV1Downloads(url),
+        urlFinished ? fetchAnimeAV1Status(urlFinished) : Promise.resolve(false),
+      ]);
+      return ok(links, finished);
     }
     if (source === "animeflv") {
-      const links = await getAnimeFLVDownloads(url);
-      return NextResponse.json({ success: true, links, finished: urlFinished ? await fetchAnimeFLVStatus(urlFinished) : false});
+      const [links, finished] = await Promise.all([
+        getAnimeFLVDownloads(url),
+        urlFinished ? fetchAnimeFLVStatus(urlFinished) : Promise.resolve(false),
+      ]);
+      return ok(links, finished);
     }
     if (source === "otakustv") {
-      const links = await getOtakusTVDownloads(url);
-      return NextResponse.json({ success: true, links, finished: urlFinished ? await fetchOtakusTVStatus(urlFinished) : false });
+      const [links, finished] = await Promise.all([
+        getOtakusTVDownloads(url),
+        urlFinished ? fetchOtakusTVStatus(urlFinished) : Promise.resolve(false),
+      ]);
+      return ok(links, finished);
     }
 
     return NextResponse.json({ error: "Unsupported source" }, { status: 400 });
