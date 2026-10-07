@@ -29,3 +29,20 @@ export const SOURCE_LINKS: Record<SourceName, string> = {
   otakustv: "https://www.otakustv.net",
   animeflv: "https://www3.animeflv.net",
 };
+
+/** Fuentes que se muestran como enlaces en la página de favoritos. */
+export const FAVORITE_SOURCES: SourceName[] = ["animeav1", "otakustv"];
+
+/** URL de la búsqueda de un título dentro de cada fuente. */
+export function getSourceSearchUrl(source: SourceName, query: string): string {
+  const q = encodeURIComponent(query);
+
+  switch (source) {
+    case "animeav1":
+      return `${SOURCE_LINKS.animeav1}/catalogo?search=${q}`;
+    case "otakustv":
+      return `${SOURCE_LINKS.otakustv}/animes?buscar=${q}`;
+    case "animeflv":
+      return `${SOURCE_LINKS.animeflv}/browse?q=${q}`;
+  }
+}

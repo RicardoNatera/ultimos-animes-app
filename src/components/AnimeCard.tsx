@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { SOURCE_ICONS, SourceName } from "@/types/sourceVars";
 import DownloadModal from "@/components/DownloadModal";
 import { Download, Loader2, AlertCircle } from "lucide-react";
+import FavoriteButton from "@/components/FavoriteButton";
 
 type Props = {
   title: string;
@@ -96,6 +97,13 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
             loading="lazy"
             decoding="async"
             className="w-full h-full object-cover rounded-t-xl hover:brightness-95 transition cursor-pointer"
+          />
+          <FavoriteButton
+            title={title}
+            image={imageUrl}
+            source={source}
+            sourceUrl={sourceUrl}
+            className="absolute bottom-2 right-2"
           />
         </a>
         <span

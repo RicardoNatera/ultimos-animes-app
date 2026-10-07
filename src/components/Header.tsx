@@ -1,14 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { Search, Calendar } from 'lucide-react';
+import { Search, Calendar, Star } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useFavorites } from '@/lib/favorites';
 
 export default function Header() {
   const [query, setQuery] = useState('');
   const router = useRouter();
+  const { favorites } = useFavorites();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +75,18 @@ export default function Header() {
           >
             <Calendar size={20} className="text-[var(--foreground)]" />
           </Link>
-
+          <Link
+            href="/favorites"
+            className="relative p-2 rounded-md hover:bg-[var(--hover)] transition-colors"
+            aria-label="Favoritos"
+          >
+            <Star size={20} className="text-[var(--foreground)]" />
+            {favorites.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-yellow-400 text-black text-[10px] font-bold flex items-center justify-center">
+                {favorites.length}
+              </span>
+            )}
+          </Link>
           <ThemeToggle />
         </div>
 

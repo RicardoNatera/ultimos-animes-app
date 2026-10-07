@@ -246,14 +246,14 @@ function sleep(ms: number) {
  * GET a una página de MAL con reintentos.
  * Reintenta ante 429, errores 5xx y fallos de red/timeout.
  */
-async function fetchMALPage(
+export async function fetchMALPage<T = string>(
   url: string,
   timeout = 10000,
   retries = 2
-): Promise<string> {
+): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
-      const response = await axios.get<string>(url, {
+      const response = await axios.get<T>(url, {
         headers: getDefaultScraperHeaders(),
         timeout,
       });
@@ -816,5 +816,35 @@ export async function getScheduleItem(malId: number) {
     firstBroadcast: getFirstBroadcastDate(details.aired, details.broadcast),
     broadcastTime: local.time,
     period: getPeriod(local.time),
+  };
+}
+
+/**
+ * Ficha de MAL para la página de favoritos.
+ * A diferencia de getScheduleItem, NO descarta nada: sirve también
+ * para animes terminados, películas o sin horario de emisión.
+ */
+export async function getMALCard(malId: number) {
+  const details = await fetchMALAnimeDetails(malId);
+
+  const parsed = details.broadcast
+    ? getLocalBroadcastDay(details.broadcast, "Desconocida")
+    : null;
+  const local = parsed && parsed.time !== "Desconocida" ? parsed : null;
+
+  return {
+    malId,
+    title: details.title,
+    url: details.url,
+    image: details.image,
+    type: details.type,
+    episodes: details.episodes,
+    status: details.status,
+    score: details.score,
+    day: local?.day ?? null,
+    broadcastTime: local?.time ?? null,
+    period: local ? getPeriod(local.time) : null,
+    airedFrom: getLocalAiredDate(details.aired, details.broadcast),
+    firstBroadcast: getFirstBroadcastDate(details.aired, details.broadcast),
   };
 }
