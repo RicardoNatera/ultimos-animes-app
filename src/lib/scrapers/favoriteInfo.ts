@@ -54,119 +54,244 @@ export function parseMALSearch(html: string): MALCandidate[] {
   return candidates.slice(0, 8);
 }
 
+/** Partículas y artículos: no cuentan como "palabras en común". */
+const STOPWORDS = new Set([
+  "no", "wa", "ga", "to", "ni", "de", "wo", "na", "ka", // partículas japonesas
+  "the", "of", "and", "an", "in", "on", // artículos y preposiciones en inglés
+]);
+
+/** Similitud mínima para dar un título por válido. */
+const MIN_SCORE = 0.7;
+
+/** Palabras de una clave normalizada (sin las de 1 letra ni las partículas). */
+function tokensOf(key: string): string[] {
+  return [
+    ...new Set(
+      key.split(" ").filter((t) => t.length > 1 && !STOPWORDS.has(t))
+    ),
+  ];
+}
+
 /**
- * Elige el resultado cuyo título más se parezca al buscado.
- * Solo se consideran los que tienen los mismos números ("2", "4th"...)
- * para no confundir temporadas. El primer resultado (el más relevante
- * para MAL) recibe además un bonus pequeño.
+ * Cuánto encaja un título candidato con el buscado (0 a 1).
+ * Devuelve null si es otra temporada (números distintos).
+ *
+ * Los sitios abrevian o reescriben los títulos, así que además de la
+ * similitud de texto se valoran las palabras en común: si un título está
+ * contenido en el otro (p. ej. sin el subtítulo largo) también encaja.
+ */
+function titleMatch(
+  target: string,
+  candidateTitle: string
+): { score: number; shared: number } | null {
+  const targetKey = normalizeKey(target);
+  const candidateKey = normalizeKey(candidateTitle);
+
+  // Números distintos = otra temporada: se descarta
+  if (digitsOf(candidateKey) !== digitsOf(targetKey)) return null;
+
+  const targetTokens = tokensOf(targetKey);
+  const candidateTokens = tokensOf(candidateKey);
+
+  const shared = targetTokens.filter((t) => candidateTokens.includes(t)).length;
+  const minTokens = Math.min(targetTokens.length, candidateTokens.length);
+
+  const dice = stringSimilarity.compareTwoStrings(targetKey, candidateKey);
+  const overlap = minTokens >= 2 && shared >= 2 ? 0.85 * (shared / minTokens) : 0;
+
+  return { score: Math.max(dice, overlap), shared };
+}
+
+/**
+ * Elige el resultado de MAL que mejor encaja con el título buscado.
+ * - El primer resultado (el más relevante para MAL) recibe un bonus pequeño.
+ * - Si MAL devolvió un único resultado, se da por bueno cuando comparte
+ *   alguna palabra con lo buscado (MAL también busca en títulos alternativos).
  */
 export function pickBestMALCandidate(
   candidates: MALCandidate[],
   title: string
 ): number | null {
-  const target = normalizeKey(title);
-  const targetDigits = digitsOf(target);
-
   let best: { id: number; score: number } | null = null;
 
   for (let rank = 0; rank < candidates.length; rank++) {
-    const candidate = candidates[rank];
-    const key = normalizeKey(candidate.title);
+    const match = titleMatch(title, candidates[rank].title);
+    if (!match) continue;
 
-    // Números distintos = otra temporada: se descarta
-    if (digitsOf(key) !== targetDigits) continue;
-
-    let score = stringSimilarity.compareTwoStrings(target, key) + 0.15;
+    let score = match.score;
     if (rank === 0) score += 0.05;
+    if (candidates.length === 1 && match.shared >= 1) score = Math.max(score, 0.8);
 
-    if (!best || score > best.score) best = { id: candidate.id, score };
+    if (!best || score > best.score) best = { id: candidates[rank].id, score };
   }
 
-  return best && best.score >= 0.6 ? best.id : null;
+    return best && best.score >= MIN_SCORE ? best.id : null;
 }
 
 /**
- * Busca el MAL ID de un título directamente en My Anime List.
+ * Variantes de búsqueda, de más a menos específica: el título completo, lo
+ * anterior al primer ":" o ",", y las 3 primeras palabras. Los títulos
+ * largos de las fuentes a veces no coinciden con el de MAL si se buscan enteros.
+ */
+export function searchQueries(title: string): string[] {
+  const clean = title.trim();
+  const queries = [clean];
+
+  const cut = clean.search(/[:,：]/);
+  if (cut > 0) queries.push(clean.slice(0, cut).trim());
+
+  queries.push(clean.split(/\s+/).slice(0, 3).join(" "));
+
+  // MAL exige mínimo 3 caracteres; sin repetidas
+  return [...new Set(queries)].filter((q) => q.length >= 3);
+}
+
+const malSearchUrl = (query: string) =>
+  `https://myanimelist.net/anime.php?q=${encodeURIComponent(query)}&cat=anime`;
+
+/**
+ * Busca el MAL ID de un título directamente en My Anime List,
+ * probando las variantes de búsqueda hasta encontrar una coincidencia.
+ *
+ * Un fallo en una variante no corta la búsqueda: MAL responde 404 a las
+ * búsquedas muy largas, y justo entonces la variante corta sí funciona.
+ * Solo se propaga el error si NINGUNA variante pudo consultarse.
  */
 export async function findMALId(title: string): Promise<number | null> {
-  if (title.trim().length < 3) return null; // MAL exige mínimo 3 caracteres
+  let consulted = false;
+  let lastError: unknown = null;
 
-  const url = `https://myanimelist.net/anime.php?q=${encodeURIComponent(title)}&cat=anime`;
-  const html = await fetchMALPage(url);
+  for (const query of searchQueries(title)) {
+    try {
+      const html = await fetchMALPage(malSearchUrl(query));
+      consulted = true;
 
-  return pickBestMALCandidate(parseMALSearch(html), title);
+      const id = pickBestMALCandidate(parseMALSearch(html), title);
+      if (id) return id;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  if (!consulted && lastError) throw lastError;
+
+  return null;
 }
 
 /**
  * Elige, entre los resultados de búsqueda de una fuente, el que mejor
- * coincide con el título. Descarta los de otra temporada (números distintos).
+ * coincide con el título (con la misma puntuación que usamos para MAL).
+ * Devuelve también el título con el que ese sitio llama al anime.
  */
-function bestLink(results: AnimeResult[], title: string): string | null {
-  const target = normalizeKey(title);
-  const targetDigits = digitsOf(target);
-
-  let best: { url: string; score: number } | null = null;
+function bestMatch(
+  results: AnimeResult[],
+  title: string
+): { url: string; title: string } | null {
+  let best: { url: string; title: string; score: number } | null = null;
 
   for (const result of results) {
-    const key = normalizeKey(result.title);
+    const match = titleMatch(title, result.title);
+    if (!match) continue;
 
-    // Números distintos = otra temporada: se descarta
-    if (digitsOf(key) !== targetDigits) continue;
-
-    const score = stringSimilarity.compareTwoStrings(target, key);
-
-    if (!best || score > best.score) best = { url: result.url, score };
+    if (!best || match.score > best.score) {
+      best = { url: result.url, title: result.title, score: match.score };
+    }
   }
 
-  return best && best.score >= 0.6 ? best.url : null;
+  return best && best.score >= MIN_SCORE
+    ? { url: best.url, title: best.title }
+    : null;
 }
 
 /**
  * Todo lo necesario para una tarjeta de favoritos:
  * ficha de MAL + enlace directo al anime en cada fuente.
+ *
+ * Si MAL no reconoce el título tal cual lo escribe la fuente de la home,
+ * se prueba con el título con el que AnimeAV1 u OtakusTV llaman al anime
+ * (cada sitio abrevia o romaniza a su manera).
  */
 export async function getFavoriteInfo(title: string) {
-  const [mal, animeav1, otakustv] = await Promise.all([
-    (async () => {
-      try {
-        const id = await findMALId(title);
-        return id ? await getMALCard(id) : null;
-      } catch (err) {
-        console.error(`[favoritos] MAL falló para "${title}":`, err);
-        return null;
-      }
-    })(),
-    searchFromAnimeAV1(title).then((r) => bestLink(r, title)),
-    searchFromOtakusTV(title).then((r) => bestLink(r, title)),
-  ]);
+  const sourcesPromise = Promise.all([
+    searchFromAnimeAV1(title),
+    searchFromOtakusTV(title),
+  ]).then(([av1Results, otakuResults]) => ({
+    animeav1: bestMatch(av1Results, title),
+    otakustv: bestMatch(otakuResults, title),
+  }));
 
-  return { mal, links: { animeav1, otakustv } };
+  const malPromise = (async () => {
+    try {
+      let id = await findMALId(title);
+
+      if (!id) {
+        const sources = await sourcesPromise;
+        const tried = new Set([normalizeKey(title)]);
+
+        for (const alt of [sources.animeav1?.title, sources.otakustv?.title]) {
+          if (!alt || tried.has(normalizeKey(alt))) continue;
+          tried.add(normalizeKey(alt));
+
+          id = await findMALId(alt);
+          if (id) break;
+        }
+      }
+      
+      if (!id) console.warn(`[favoritos] sin coincidencia en MAL para "${title}"`);
+      return id ? await getMALCard(id) : null;
+    } catch (err) {
+      console.error(`[favoritos] MAL falló para "${title}":`, err);
+      return null;
+    }
+  })();
+
+  const [mal, sources] = await Promise.all([malPromise, sourcesPromise]);
+
+  return {
+    mal,
+    links: {
+      animeav1: sources.animeav1?.url ?? null,
+      otakustv: sources.otakustv?.url ?? null,
+    },
+  };
 }
 
 /**
- * Diagnóstico: muestra qué devuelve MAL al buscar un título y qué candidato
- * se elegiría. Útil cuando una tarjeta sale "Sin ficha en My Anime List".
+ * Diagnóstico: para cada variante de búsqueda, muestra qué devuelve MAL y qué
+ * candidato se elegiría. Útil cuando una tarjeta sale "Sin ficha en My Anime List".
  */
 export async function debugMAL(title: string) {
-  const url = `https://myanimelist.net/anime.php?q=${encodeURIComponent(title)}&cat=anime`;
+  const attempts: Record<string, unknown>[] = [];
 
-  try {
-    const html = await fetchMALPage(url);
-    const candidates = parseMALSearch(html);
+  for (const query of searchQueries(title)) {
+    const url = malSearchUrl(query);
 
-    return {
-      url,
-      htmlLength: html.length,
-      pageTitle: html.match(/<title>([^<]*)<\/title>/i)?.[1]?.trim() ?? null,
-      candidates,
-      chosenId: pickBestMALCandidate(candidates, title),
-    };
-  } catch (err) {
-    const e = err as { message?: string; response?: { status?: number } };
-    return {
-      url,
-      error: e.message ?? String(err),
-      status: e.response?.status ?? null,
-    };
+    try {
+      const html = await fetchMALPage(url);
+      const candidates = parseMALSearch(html);
+      const chosenId = pickBestMALCandidate(candidates, title);
+
+      attempts.push({
+        query,
+        pageTitle: html.match(/<title>([^<]*)<\/title>/i)?.[1]?.trim() ?? null,
+        // Pistas de la estructura de la página, por si no hay candidatos
+        noResultsMessage: /No titles that matched/i.test(html),
+        hasResultsTable: html.includes("js-categories-seasonal"),
+        hoverLinks: (html.match(/hoverinfo_trigger/g) ?? []).length,
+        candidates,
+        chosenId,
+      });
+
+      if (chosenId) break;
+    } catch (err) {
+      const e = err as { message?: string; response?: { status?: number } };
+      attempts.push({
+        query,
+        error: e.message ?? String(err),
+        status: e.response?.status ?? null,
+      });
+    }
   }
+
+  return { title, attempts };
 }

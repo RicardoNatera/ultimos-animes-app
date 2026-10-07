@@ -178,7 +178,8 @@ export default function FavoritesClient() {
                 href={cardUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-semibold leading-tight hover:underline"
+                title={cardTitle}
+                className="font-semibold leading-tight hover:underline line-clamp-2 min-h-10"
               >
                 {cardTitle}
               </a>

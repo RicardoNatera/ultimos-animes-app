@@ -205,9 +205,9 @@ export default function ScheduleClient() {
                 loading="lazy"
                 decoding="async"
               />
-              <div className="p-3">
+              <div className="p-3 flex flex-col gap-2">
                 {!anime.pending && (
-                  <div className="flex flex-wrap gap-2 mb-2">
+                  <div className="flex flex-wrap gap-2">
                     <span className="text-xs bg-blue-600/40 px-2 py-1 rounded">
                       {anime.type ?? "TV Anime"} • {anime.episodes ?? "N/A"} ep
                     </span>
@@ -221,7 +221,10 @@ export default function ScheduleClient() {
                     </span>
                   </div>
                 )}
-                <h2 className="font-semibold mt-2 leading-tight">
+                <h2
+                  title={anime.title}
+                  className="font-semibold leading-tight line-clamp-2 min-h-10"
+                >
                   {anime.title}
                 </h2>
               </div>
