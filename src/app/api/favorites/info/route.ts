@@ -1,4 +1,8 @@
-import { debugMAL, getFavoriteInfo } from "@/lib/scrapers/favoriteInfo";
+import {
+  debugMAL,
+  debugSources,
+  getFavoriteInfo,
+} from "@/lib/scrapers/favoriteInfo";
 
 // Búsqueda en MAL + ficha de MAL + 2 búsquedas, con reintentos
 export const maxDuration = 30;
@@ -10,13 +14,14 @@ export async function GET(req: Request) {
   if (!title || title.length > 200) {
     return Response.json({ error: "título inválido" }, { status: 400 });
   }
-    // Diagnóstico (solo en desarrollo): ?title=...&debug=1
-  if (
-    searchParams.get("debug") === "1" &&
-    process.env.NODE_ENV !== "production"
-  ) {
-    return Response.json(await debugMAL(title));
+    // Diagnóstico (solo en desarrollo): ?title=...&debug=1 (MAL) o &debug=sources
+  const debug = searchParams.get("debug");
+  if (debug && process.env.NODE_ENV !== "production") {
+    return Response.json(
+      debug === "sources" ? await debugSources(title) : await debugMAL(title)
+    );
   }
+  
   try {
     const info = await getFavoriteInfo(title);
 

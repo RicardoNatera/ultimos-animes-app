@@ -129,20 +129,37 @@ export function pickBestMALCandidate(
 }
 
 /**
- * Variantes de búsqueda, de más a menos específica: el título completo, lo
- * anterior al primer ":" o ",", y las 3 primeras palabras. Los títulos
- * largos de las fuentes a veces no coinciden con el de MAL si se buscan enteros.
+ * Quita el marcador de temporada del final:
+ * "Foo 3rd Season" -> "Foo", "Foo Season 2" -> "Foo", "Foo Part 2" -> "Foo", "Foo 4" -> "Foo".
+ * Cada sitio llama a las temporadas a su manera ("3rd Season", "3", "Part 3"...),
+ * así que buscar sin ese sufijo devuelve todas y luego elegimos la correcta.
+ */
+function withoutSeason(title: string): string {
+  return title
+    .replace(
+      /[\s:,–-]*\b(?:\d+(?:st|nd|rd|th)\s+(?:season|cour)|(?:season|part|cour)\s+\d+)\b.*$/i,
+      ""
+    )
+    .replace(/\s+\d+$/, "")
+    .trim();
+}
+
+/**
+ * Variantes de búsqueda, de más a menos específica: el título completo, sin el
+ * marcador de temporada, lo anterior al primer ":" o ",", y las 3 primeras
+ * palabras. Los títulos largos de las fuentes a veces no coinciden con el de
+ * MAL (u otro sitio) si se buscan enteros.
  */
 export function searchQueries(title: string): string[] {
   const clean = title.trim();
-  const queries = [clean];
+  const queries = [clean, withoutSeason(clean)];
 
   const cut = clean.search(/[:,：]/);
   if (cut > 0) queries.push(clean.slice(0, cut).trim());
 
   queries.push(clean.split(/\s+/).slice(0, 3).join(" "));
 
-  // MAL exige mínimo 3 caracteres; sin repetidas
+  // Mínimo 3 caracteres; sin repetidas
   return [...new Set(queries)].filter((q) => q.length >= 3);
 }
 
@@ -204,6 +221,22 @@ function bestMatch(
 }
 
 /**
+ * Busca el anime en una fuente probando las variantes de búsqueda
+ * hasta que alguna devuelva una coincidencia.
+ */
+async function searchSource(
+  search: (query: string) => Promise<AnimeResult[]>,
+  title: string
+) {
+  for (const query of searchQueries(title)) {
+    const match = bestMatch(await search(query), title);
+    if (match) return match;
+  }
+
+  return null;
+}
+
+/**
  * Todo lo necesario para una tarjeta de favoritos:
  * ficha de MAL + enlace directo al anime en cada fuente.
  *
@@ -213,12 +246,9 @@ function bestMatch(
  */
 export async function getFavoriteInfo(title: string) {
   const sourcesPromise = Promise.all([
-    searchFromAnimeAV1(title),
-    searchFromOtakusTV(title),
-  ]).then(([av1Results, otakuResults]) => ({
-    animeav1: bestMatch(av1Results, title),
-    otakustv: bestMatch(otakuResults, title),
-  }));
+    searchSource(searchFromAnimeAV1, title),
+    searchSource(searchFromOtakusTV, title),
+  ]).then(([animeav1, otakustv]) => ({ animeav1, otakustv }));
 
   const malPromise = (async () => {
     try {
@@ -294,4 +324,35 @@ export async function debugMAL(title: string) {
   }
 
   return { title, attempts };
+}
+
+/**
+ * Diagnóstico de las fuentes: para cada variante de búsqueda, qué resultados
+ * devuelve AnimeAV1 / OtakusTV y cuál se elegiría.
+ */
+export async function debugSources(title: string) {
+  const out: Record<string, unknown[]> = { animeav1: [], otakustv: [] };
+
+  const sources = [
+    ["animeav1", searchFromAnimeAV1],
+    ["otakustv", searchFromOtakusTV],
+  ] as const;
+
+  for (const [name, search] of sources) {
+    for (const query of searchQueries(title)) {
+      const results = await search(query);
+      const chosen = bestMatch(results, title);
+
+      out[name].push({
+        query,
+        resultCount: results.length,
+        firstResults: results.slice(0, 5).map((r) => r.title),
+        chosen: chosen?.title ?? null,
+      });
+
+      if (chosen) break;
+    }
+  }
+
+  return { title, ...out };
 }
