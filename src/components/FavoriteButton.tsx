@@ -32,7 +32,11 @@ export default function FavoriteButton({
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        toggleFavorite({ title, image, source, sourceUrl });
+        if (toggleFavorite({ title, image, source, sourceUrl }) === "full") {
+          window.alert(
+            "Llegaste al límite de espacio para favoritos. Quita alguno para poder añadir más."
+          );
+        }
       }}
       className={`rounded-full p-1.5 bg-black/50 hover:bg-black/70 transition cursor-pointer ${className}`}
     >
