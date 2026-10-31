@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from "react";
-import { SOURCE_ICONS, SourceName } from "@/types/sourceVars";
+import { SOURCE_ICONS, SOURCE_NAMES, SourceName } from "@/types/sourceVars";
+import type { AnimeAlternative } from "@/types/anime";
+import { fetchGroupedDownloads, type DownloadLink, type DownloadTarget } from "@/lib/groupedDownloads";
 import DownloadModal from "@/components/DownloadModal";
 import { Download, Loader2, AlertCircle } from "lucide-react";
 import FavoriteButton from "@/components/FavoriteButton";
@@ -14,22 +16,26 @@ type Props = {
   source: SourceName;
   finished: boolean;
   setFinishedURL:string;
+  alternatives?: AnimeAlternative[];
 };
 
-function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setFinishedURL }: Props) {
+function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setFinishedURL, alternatives }: Props) {
   const badgeColor = source === "animeflv"
     ? "#facc15" // amarillo
     : source === "animeav1"
       ? "#16a34a" // verde
       : "#9333ea"; // morado
 
-  const [downloads, setDownloads] = useState<{ label: string; url: string }[] | null>(null);
+  const [downloads, setDownloads] = useState<DownloadLink[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFinished, setIsFinished] = useState(finished)
   const cardRef = useRef<HTMLDivElement>(null);
   const isPremiere = episode === 0 || episode === 1;
+
+  // Clave estable de las otras fuentes (evita volver a pedir enlaces si la lista se refresca)
+  const altKey = JSON.stringify(alternatives ?? []);
   
   useEffect(() => {
     const el = cardRef.current;
@@ -38,26 +44,37 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
     let cancelled = false;
 
     const fetchDownloads = async () => {
-      try {
-        const res = await fetch(
-          `/api/downloads?source=${source}&url=${encodeURIComponent(sourceUrl)}&urlFinished=${encodeURIComponent(setFinishedURL)}`
-        );
-        const json = await res.json();
-        if (cancelled) return;
+      // La fuente de la tarjeta y, si es el mismo capítulo en otras fuentes, también esas
+      const targets: DownloadTarget[] = [
+        { source, url: sourceUrl, finishedUrl: setFinishedURL },
+        ...(JSON.parse(altKey) as AnimeAlternative[]).map((alt) => ({
+          source: alt.source,
+          url: alt.url,
+          finishedUrl: alt.setFinishedURL,
+        })),
+      ];
 
-        if (json.success && json.links.length > 0) {
-          setDownloads(json.links);
-          setIsFinished(json.finished);
-          setError("");
-        } else {
-          setDownloads(null);
-          setError("No se encontraron enlaces de descarga.");
-        }
-      } catch {
-        if (!cancelled) setError("Error al conectar con la fuente.");
-      } finally {
-        if (!cancelled) setLoading(false);
+      const result = await fetchGroupedDownloads(targets, async (target) => {
+        const res = await fetch(
+          `/api/downloads?source=${target.source}&url=${encodeURIComponent(target.url)}&urlFinished=${encodeURIComponent(target.finishedUrl)}`
+        );
+        return res.json();
+      });
+      if (cancelled) return;
+
+      if (result.ok) {
+        setDownloads(result.links);
+        if (result.finished !== null) setIsFinished(result.finished);
+        setError("");
+      } else {
+        setDownloads(null);
+        setError(
+          result.reason === "connection"
+            ? "Error al conectar con la fuente."
+            : "No se encontraron enlaces de descarga."
+        );
       }
+      setLoading(false);
     };
 
     // Solo pedimos los enlaces cuando la tarjeta está cerca de verse
@@ -76,7 +93,7 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
       cancelled = true;
       observer.disconnect();
     };
-  }, [source, sourceUrl, setFinishedURL]);
+  }, [source, sourceUrl, setFinishedURL, altKey]);
 
   return (
     <div
@@ -115,11 +132,23 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
         >
           Episodio {episode}
         </span>
-        <img
-          src={SOURCE_ICONS[source]}
-          alt={source}
-          className="h-6 w-6 rounded-full absolute top-2 right-2 shadow-md"
-        />
+        <div className="absolute top-2 right-2 flex items-center gap-1">
+          {/* Mismo capítulo disponible en otras fuentes */}
+          {alternatives?.map((alt) => (
+            <img
+              key={alt.source}
+              src={SOURCE_ICONS[alt.source]}
+              alt={alt.source}
+              title={`También en ${SOURCE_NAMES[alt.source]}`}
+              className="h-6 w-6 rounded-full shadow-md"
+            />
+          ))}
+          <img
+            src={SOURCE_ICONS[source]}
+            alt={source}
+            className="h-6 w-6 rounded-full shadow-md"
+          />
+        </div>
       </div>
 
       <div className="mt-2 flex items-center justify-between">

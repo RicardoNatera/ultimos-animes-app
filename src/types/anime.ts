@@ -1,5 +1,12 @@
 import {SourceName} from "@/types/sourceVars"
 
+/** El mismo capítulo del mismo anime en otra fuente. */
+export interface AnimeAlternative {
+  source: SourceName;
+  url: string;
+  setFinishedURL: string;
+}
+
 export interface ScrapedAnime {
   title: string;
   url: string;
@@ -7,7 +14,9 @@ export interface ScrapedAnime {
   episode: number;
   source: SourceName;
   finished: boolean;
-  setFinishedURL: string
+  setFinishedURL: string;
+  // Mismo anime y capítulo en otras fuentes (la tarjeta es la de mayor prioridad)
+  alternatives?: AnimeAlternative[];
 }
 
 export interface RankedAnime extends ScrapedAnime {

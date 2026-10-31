@@ -34,3 +34,61 @@ export function sameAnime(a: string, b: string): boolean {
 
   return stringSimilarity.compareTwoStrings(ka, kb) >= 0.9;
 }
+
+/** Partículas y artículos: no cuentan como "palabras en común". */
+const STOPWORDS = new Set([
+  "no", "wa", "ga", "to", "ni", "de", "wo", "na", "ka", // partículas japonesas
+  "the", "of", "and", "an", "in", "on", // artículos y preposiciones en inglés
+]);
+
+/** Similitud mínima para dar un título por válido. */
+export const MIN_SCORE = 0.7;
+
+/**
+ * Unifica cómo se escribe la temporada: "3rd Season", "Season 3", "Part 3"
+ * y "Cour 3" pasan a ser "3", para poder comparar títulos de distintos sitios.
+ */
+export function canonicalSeason(title: string): string {
+  return title
+    .replace(/\b(\d+)(?:st|nd|rd|th)\s+(?:season|cour)\b/gi, "$1")
+    .replace(/\b(?:season|part|cour)\s+(\d+)\b/gi, "$1");
+}
+
+/** Palabras de una clave normalizada (sin las de 1 letra ni las partículas). */
+function tokensOf(key: string): string[] {
+  return [
+    ...new Set(
+      key.split(" ").filter((t) => t.length > 1 && !STOPWORDS.has(t))
+    ),
+  ];
+}
+
+/**
+ * Cuánto encaja un título candidato con el buscado (0 a 1).
+ * Devuelve null si es otra temporada (números distintos).
+ *
+ * Los sitios abrevian o reescriben los títulos, así que además de la
+ * similitud de texto se valoran las palabras en común: si un título está
+ * contenido en el otro (p. ej. sin el subtítulo largo) también encaja.
+ */
+export function titleMatch(
+  target: string,
+  candidateTitle: string
+): { score: number; shared: number } | null {
+  const targetKey = normalizeKey(canonicalSeason(target));
+  const candidateKey = normalizeKey(canonicalSeason(candidateTitle));
+
+  // Números distintos = otra temporada: se descarta
+  if (digitsOf(candidateKey) !== digitsOf(targetKey)) return null;
+
+  const targetTokens = tokensOf(targetKey);
+  const candidateTokens = tokensOf(candidateKey);
+
+  const shared = targetTokens.filter((t) => candidateTokens.includes(t)).length;
+  const minTokens = Math.min(targetTokens.length, candidateTokens.length);
+
+  const dice = stringSimilarity.compareTwoStrings(targetKey, candidateKey);
+  const overlap = minTokens >= 2 && shared >= 2 ? 0.85 * (shared / minTokens) : 0;
+
+  return { score: Math.max(dice, overlap), shared };
+}

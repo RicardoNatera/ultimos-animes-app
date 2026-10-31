@@ -92,6 +92,7 @@ export default function HomeClient() {
                 sourceUrl={anime.url}
                 finished={anime.finished}
                 setFinishedURL={anime.setFinishedURL}
+                alternatives={anime.alternatives}
                 />
             ))}
           </section>

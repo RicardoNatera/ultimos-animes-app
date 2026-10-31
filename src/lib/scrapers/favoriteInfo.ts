@@ -1,9 +1,8 @@
 import * as cheerio from "cheerio";
-import stringSimilarity from "string-similarity";
 import type { AnimeResult } from "@/types/anime";
 import { fetchMALPage, getMALCard } from "@/lib/scrapers/scraper";
 import { searchFromAnimeAV1, searchFromOtakusTV } from "@/lib/scrapers/search";
-import { digitsOf, normalizeKey } from "@/lib/titles";
+import { MIN_SCORE, normalizeKey, titleMatch } from "@/lib/titles";
 
 type MALCandidate = { id: number; title: string };
 
@@ -52,54 +51,6 @@ export function parseMALSearch(html: string): MALCandidate[] {
   if (candidates.length === 0) collect("a.hoverinfo_trigger");
 
   return candidates.slice(0, 8);
-}
-
-/** Partículas y artículos: no cuentan como "palabras en común". */
-const STOPWORDS = new Set([
-  "no", "wa", "ga", "to", "ni", "de", "wo", "na", "ka", // partículas japonesas
-  "the", "of", "and", "an", "in", "on", // artículos y preposiciones en inglés
-]);
-
-/** Similitud mínima para dar un título por válido. */
-const MIN_SCORE = 0.7;
-
-/** Palabras de una clave normalizada (sin las de 1 letra ni las partículas). */
-function tokensOf(key: string): string[] {
-  return [
-    ...new Set(
-      key.split(" ").filter((t) => t.length > 1 && !STOPWORDS.has(t))
-    ),
-  ];
-}
-
-/**
- * Cuánto encaja un título candidato con el buscado (0 a 1).
- * Devuelve null si es otra temporada (números distintos).
- *
- * Los sitios abrevian o reescriben los títulos, así que además de la
- * similitud de texto se valoran las palabras en común: si un título está
- * contenido en el otro (p. ej. sin el subtítulo largo) también encaja.
- */
-function titleMatch(
-  target: string,
-  candidateTitle: string
-): { score: number; shared: number } | null {
-  const targetKey = normalizeKey(target);
-  const candidateKey = normalizeKey(candidateTitle);
-
-  // Números distintos = otra temporada: se descarta
-  if (digitsOf(candidateKey) !== digitsOf(targetKey)) return null;
-
-  const targetTokens = tokensOf(targetKey);
-  const candidateTokens = tokensOf(candidateKey);
-
-  const shared = targetTokens.filter((t) => candidateTokens.includes(t)).length;
-  const minTokens = Math.min(targetTokens.length, candidateTokens.length);
-
-  const dice = stringSimilarity.compareTwoStrings(targetKey, candidateKey);
-  const overlap = minTokens >= 2 && shared >= 2 ? 0.85 * (shared / minTokens) : 0;
-
-  return { score: Math.max(dice, overlap), shared };
 }
 
 /**

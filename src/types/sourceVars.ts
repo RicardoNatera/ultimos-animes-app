@@ -18,6 +18,12 @@ export const SOURCE_ICONS: Record<SourceName, string> = {
   animeflv: "https://www3.animeflv.net/favicon.ico",
 };
 
+export const SOURCE_NAMES: Record<SourceName, string> = {
+  animeav1: "AnimeAV1",
+  otakustv: "OtakusTV",
+  animeflv: "AnimeFLV",
+};
+
 export const SOURCE_LOGOS = {
   animeflv: "/icons/animeflv.png",
   animeav1: "/icons/animeav1.png",
