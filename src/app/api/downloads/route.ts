@@ -3,6 +3,16 @@ import { getDefaultScraperHeaders, fetchAnimeAV1Status, fetchAnimeFLVStatus, fet
 import * as cheerio from "cheerio";
 import { SOURCE_LINKS, type SourceName } from "@/types/sourceVars";
 
+
+// Sin límite de tiempo, una fuente que no responde dejaría la petición colgada
+async function fetchHtml(url: string): Promise<string> {
+  const res = await fetch(url, {
+    headers: getDefaultScraperHeaders(),
+    signal: AbortSignal.timeout(8000),
+  });
+  return res.text();
+}
+
 // Helper para scraping de otakustv
 function extractLabel(url: string): string {
   try {
@@ -23,8 +33,7 @@ function extractLabel(url: string): string {
 async function getOtakusTVDownloads(originalUrl: string) {
   type DownloadEntry = [string, string];
   try {
-    const res = await fetch(originalUrl,{headers: getDefaultScraperHeaders()});
-    const html = await res.text();
+    const html = await fetchHtml(originalUrl);
     const $ = cheerio.load(html);
     const links: { label: string; url: string }[] = [];
     
@@ -60,8 +69,7 @@ async function getOtakusTVDownloads(originalUrl: string) {
 
 // Helper para scraping de animeflv
 async function getAnimeFLVDownloads(url: string) {
-  const res = await fetch(url,{headers: getDefaultScraperHeaders()});
-  const html = await res.text();
+  const html = await fetchHtml(url);
   const $ = cheerio.load(html);
   const links: { label: string; url: string }[] = [];
 
@@ -85,8 +93,7 @@ async function getAnimeFLVDownloads(url: string) {
 
 // Helper para scraping de animeav1
 async function getAnimeAV1Downloads(url: string) {
-  const res = await fetch(url,{headers: getDefaultScraperHeaders()});
-  const html = await res.text();
+  const html = await fetchHtml(url);
   const links: { label: string; url: string }[] = [];
 
 
@@ -155,7 +162,14 @@ function isAllowedUrl(source: string, raw: string | null): boolean {
   }
 }
 
-function ok(links: { label: string; url: string }[], finished: boolean) {
+// Solo enlaces web normales (descarta "javascript:", "data:", etc.)
+const isHttpUrl = (value: string) => /^https?:\/\//i.test(value);
+
+function ok(allLinks: { label: string; url: string }[], finished: boolean) {
+  const links = allLinks
+    .map((link) => ({ ...link, url: link.url.trim() }))
+    .filter((link) => isHttpUrl(link.url));
+
   // Con enlaces: 10 min. Sin enlaces (episodio recién publicado): solo 1 min
   const ttl = links.length > 0 ? 600 : 60;
   return NextResponse.json(
@@ -167,6 +181,7 @@ function ok(links: { label: string; url: string }[], finished: boolean) {
     }
   );
 }
+
 export async function GET(req: NextRequest) {
     
   const { searchParams } = new URL(req.url);
@@ -210,6 +225,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ error: "Unsupported source" }, { status: 400 });
   } catch (err) {
-    return NextResponse.json({ error: "Scraping failed", details: String(err) }, { status: 500 });
+    console.error("Downloads error:", err);
+    return NextResponse.json({ error: "Scraping failed" }, { status: 500 });
   }
 }

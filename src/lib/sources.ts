@@ -26,7 +26,14 @@ async function getLatestFromSource(source: keyof typeof scrapers): Promise<Scrap
   try {
     if(source=='animeflv') return []; //animeflv down
     const html = await scrapers[source].fetch();
-    return scrapers[source].parse(html);
+    const animes = await scrapers[source].parse(html);
+
+    // Si el sitio responde pero no se lee nada, probablemente cambió su HTML
+    if (animes.length === 0) {
+      console.warn(`[${source}] 0 episodios leídos: ¿cambió el HTML del sitio?`);
+    }
+
+    return animes;
   } catch (err) {
     console.error(`Error scraping ${source}:`, err);
     return [];

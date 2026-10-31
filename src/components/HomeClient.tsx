@@ -10,17 +10,22 @@ import { useFavorites, useOnlyFavorites } from '@/lib/favorites';
 export default function HomeClient() {
   const [animes, setAnimes] = useState<ScrapedAnime[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const { favorites, isFavorite } = useFavorites();
   const [onlyFavorites, setOnlyFavorites] = useOnlyFavorites();
 
   const fetchAnimes = async () => {
     setLoading(true);
+    setError(false);
     try {
       const res = await fetch('/api/animes');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('Respuesta inesperada');
       setAnimes(data);
     } catch (err) {
       console.error('Error al cargar animes', err);
+      
     } finally {
       setLoading(false);
     }
@@ -73,6 +78,10 @@ export default function HomeClient() {
         </div>
         {loading && animes.length === 0 ? (
           <Loader />
+        ) : error && animes.length === 0 ? (
+          <p className="text-center opacity-70 py-16">
+            No se pudieron cargar los episodios. Pulsa «Actualizar» para reintentar.
+          </p>
         ) : onlyFavorites && visible.length === 0 ? (
           <p className="text-center opacity-70 py-16">
             {favorites.length === 0

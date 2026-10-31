@@ -22,22 +22,38 @@ export default function SearchPage() {
 
   useEffect(() => {
     if (!query) return;
+
+    // Si el usuario busca otra cosa antes de que llegue la respuesta, se descarta la vieja
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
 
-    fetch(`/api/search?q=${encodeURIComponent(query)}&sources=animeflv,otakustv,animeav1`)
-      .then(res => res.json())
+    fetch(`/api/search?q=${encodeURIComponent(query)}&sources=animeflv,otakustv,animeav1`, {
+      signal: controller.signal,
+    })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then((data: AnimeResult[]) => {
+        if (!Array.isArray(data)) throw new Error('Respuesta inesperada');
         setAnimes(data);
         setFilteredAnimes(data);
         setSelectedSources(['todos']);
         setCurrentPage(1);
       })
       .catch(err => {
+        if (controller.signal.aborted) return;
         console.error('Error en búsqueda:', err);
+        setAnimes([]);
+        setFilteredAnimes([]);
         setError('Hubo un problema al cargar los resultados.');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
   }, [query]);
 
   useEffect(() => {

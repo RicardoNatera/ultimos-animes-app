@@ -3,6 +3,9 @@ import * as cheerio from 'cheerio';
 import { ScrapedAnime } from "@/types/anime";
 import { formatInTimeZone } from "date-fns-tz";
 
+// Sin límite de tiempo, un sitio que no responde dejaría colgada toda la página de inicio
+axios.defaults.timeout = 8000;
+
 export function extractEpisodeNumber(text: string): number {
   const match = text.match(/\d+/); // busca el primer número en la cadena
   return match ? parseInt(match[0], 10) : 0; // si no encuentra, retorna 0

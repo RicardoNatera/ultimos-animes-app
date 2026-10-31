@@ -88,7 +88,6 @@ export default function RootLayout({
           flex min-h-screen flex-col 
           ${geistSans.variable} ${geistMono.variable} 
           antialiased 
-          bg-[--background] text-[--foreground]
         `}
       >
         <Suspense>
@@ -98,8 +97,8 @@ export default function RootLayout({
         </main>
         <Footer />
         </Suspense>
+        <SpeedInsights/>
       </body>
-      <SpeedInsights/>
     </html>
   );
 }

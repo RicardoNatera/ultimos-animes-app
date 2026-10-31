@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     ? sourcesParam.split(',').map(s => s.trim().toLowerCase())
     : Object.values(SOURCES);
 
-  if (!query || typeof query !== 'string') {
+  if (!query || query.length > 100) {
     return new Response(JSON.stringify({ error: 'Missing or invalid query param "q"' }), {
       status: 400,
     });
@@ -40,10 +40,9 @@ export async function GET(req: NextRequest) {
       return simB - simA; 
     });
 
-    return new Response(JSON.stringify(sorted), {
-      status: 200,
+    return Response.json(sorted, {
       headers: {
-        'Content-Type': 'application/json',
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600',
       },
     });
   } catch (err) {
