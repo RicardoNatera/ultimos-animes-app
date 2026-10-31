@@ -14,6 +14,14 @@
 
   --badge-bg: #ffffff;
   --badge-fg: #000000;
+  
+  /* Derivadas: en modo oscuro toman solos los valores de :root.dark */
+  --accent-border: var(--border);
+  --accent-muted: var(--hover);
+  --panel-hover: var(--hover);
+  --muted-foreground: var(--muted);
+  --card: var(--panel);
+  --input: var(--background);
 
   --scroll-thumb: #cccccc;          /* Gris suave para el thumb */
   --scroll-thumb-hover: #999999;    /* Más oscuro al hacer hover */
