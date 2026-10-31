@@ -2,7 +2,7 @@ import type { Favorite } from "@/lib/favorites";
 import type { Info, InfoMap } from "@/lib/favoritesInfo";
 import { normalizeKey } from "@/lib/titles";
 
-export const STATUS_FILTERS = ["all", "airing", "upcoming", "finished"] as const;
+export const STATUS_FILTERS = ["all", "airing", "finished"] as const;
 export const SORT_MODES = ["recent", "day", "title", "score"] as const;
 
 export type StatusFilter = (typeof STATUS_FILTERS)[number];
@@ -35,13 +35,16 @@ export function currentDayIndex(now = new Date()): number {
   return WEEKDAYS_EN.indexOf(name);
 }
 
-/** Estado de emisión según MAL, o null si no hay datos. */
+/**
+ * Estado de emisión según MAL, o null si no hay datos.
+ * Los favoritos se marcan en la home, o sea que ya tienen episodios emitidos:
+ * si MAL todavía dice "Not yet aired" (se retrasa en actualizarse), cuenta como en emisión.
+ */
 export function statusOf(info: Info | null | undefined): Exclude<StatusFilter, "all"> | null {
   switch (info?.mal?.status) {
     case "Currently Airing":
-      return "airing";
     case "Not yet aired":
-      return "upcoming";
+      return "airing";
     case "Finished Airing":
       return "finished";
     default:
@@ -50,13 +53,13 @@ export function statusOf(info: Info | null | undefined): Exclude<StatusFilter, "
 }
 
 /**
- * Día y hora de emisión, solo para lo que está en emisión o por estrenar
+ * Día y hora de emisión, solo para lo que está en emisión
  * (en los terminados MAL conserva el horario antiguo y no sirve para ordenar).
  */
 function scheduleOf(info: Info | null | undefined, today: number) {
   const status = statusOf(info);
   const mal = info?.mal;
-  if ((status !== "airing" && status !== "upcoming") || !mal?.day || !mal.broadcastTime) {
+  if (status !== "airing" || !mal?.day || !mal.broadcastTime) {
     return null;
   }
 

@@ -34,7 +34,6 @@ const PAGE_SIZE = 25;
 const STATUS_CHIPS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "Todos" },
   { value: "airing", label: "En emisión" },
-  { value: "upcoming", label: "Próximamente" },
   { value: "finished", label: "Finalizados" },
 ];
 
