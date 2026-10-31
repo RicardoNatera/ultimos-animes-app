@@ -55,7 +55,7 @@ export default function DownloadModal({ onClose, downloads }: DownloadModalProps
           exit={{ scale: 0.9, opacity: 0 }}
           transition={{ type: "spring", damping: 20, stiffness: 300 }}
           ref={modalRef}
-          className="p-6 rounded-xl shadow-2xl max-w-md w-full relative"
+          className="p-6 mx-4 rounded-xl shadow-2xl max-w-lg w-full relative"
           style={{
             backgroundColor: "var(--panel)",
             color: "var(--foreground)"
@@ -87,14 +87,15 @@ export default function DownloadModal({ onClose, downloads }: DownloadModalProps
                                 {SOURCE_NAMES[section.source]}
                             </h3>
                         )}
-                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-3">
                             {section.links.map((link, idx) => (
-                            <a
+                             <a
                                 key={idx}
                                 href={link.url}
+                                title={link.label}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-sm font-medium px-3 py-2 rounded shadow-sm border transition-colors duration-200 text-center"
+                                className="text-sm font-medium px-3 py-2 rounded shadow-sm border transition-colors duration-200 text-center truncate"
                                 style={{
                                 backgroundColor: "var(--panel)",
                                 color: "var(--accent)",
