@@ -25,7 +25,7 @@ export default function HomeClient() {
       setAnimes(data);
     } catch (err) {
       console.error('Error al cargar animes', err);
-      
+      setError(true);
     } finally {
       setLoading(false);
     }
