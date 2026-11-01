@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { AnimeResult } from '@/types/anime';
 import AnimeCardWithHover from '@/components/AnimeCardWithHover';
 import Loader from '@/components/Loader';
-import { SOURCES } from '@/types/sourceVars';
+import { ENABLED_SOURCES } from '@/types/sourceVars';
 
 
 export default function SearchPage() {
@@ -28,7 +28,7 @@ export default function SearchPage() {
     setLoading(true);
     setError(null);
 
-    fetch(`/api/search?q=${encodeURIComponent(query)}&sources=animeflv,otakustv,animeav1`, {
+    fetch(`/api/search?q=${encodeURIComponent(query)}&sources=${ENABLED_SOURCES.join(',')}`, {
       signal: controller.signal,
     })
       .then(res => {
@@ -76,7 +76,7 @@ export default function SearchPage() {
         ? selectedSources.filter(s => s !== src)
         : [...selectedSources.filter(s => s !== 'todos'), src];
 
-      if (updated.length === Object.keys(SOURCES).length) {
+      if (updated.length === ENABLED_SOURCES.length) {
         setSelectedSources(['todos']);
       } else {
         setSelectedSources(updated);
@@ -106,7 +106,7 @@ export default function SearchPage() {
 
         {!loading && animes.length > 0 && (
           <div className="flex flex-wrap gap-3 justify-center mb-10 text-[var(--foreground)]">
-            {['todos', ...Object.values(SOURCES)].map(src => (
+            {['todos', ...ENABLED_SOURCES].map(src => (
               <label
                 key={src}
                 className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--card)] border border-[var(--border)] cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 transition"

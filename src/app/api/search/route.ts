@@ -1,16 +1,14 @@
 import { NextRequest } from 'next/server';
 import { searchFromAnimeFLV, searchFromOtakusTV, searchFromAnimeAV1 } from '@/lib/scrapers/search';
-import { SOURCES } from '@/types/sourceVars';
+import { SOURCES, parseEnabledSources } from '@/types/sourceVars';
 import { AnimeResult } from '@/types/anime';
 import stringSimilarity from 'string-similarity';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get('q');
-  const sourcesParam = searchParams.get('sources') || '';
-  const selectedSources = sourcesParam
-    ? sourcesParam.split(',').map(s => s.trim().toLowerCase())
-    : Object.values(SOURCES);
+  // Solo las fuentes que existen y están encendidas (SOURCE_ENABLED)
+  const selectedSources = parseEnabledSources(searchParams.get('sources'));
 
   if (!query || query.length > 100) {
     return new Response(JSON.stringify({ error: 'Missing or invalid query param "q"' }), {

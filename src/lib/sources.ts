@@ -1,5 +1,5 @@
 import { ScrapedAnime, RankedAnime } from "@/types/anime";
-import {SOURCES, SOURCE_PRIORITY, SourceName} from "@/types/sourceVars"
+import {SOURCES, SOURCE_ENABLED, SOURCE_PRIORITY, SourceName} from "@/types/sourceVars"
 import {
   fetchAnimeFLVHTML, parseAnimeFLV,
   fetchAnimeAV1HTML, parseAnimeAV1,
@@ -24,7 +24,8 @@ const scrapers = {
 
 async function getLatestFromSource(source: keyof typeof scrapers): Promise<ScrapedAnime[]> {
   try {
-    if(source=='animeflv') return []; //animeflv down
+    // Fuente apagada en SOURCE_ENABLED: ni siquiera se hace la petición
+    if (!SOURCE_ENABLED[source]) return [];
     const html = await scrapers[source].fetch();
     const animes = await scrapers[source].parse(html);
 

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDefaultScraperHeaders, fetchAnimeAV1Status, fetchAnimeFLVStatus, fetchOtakusTVStatus } from "@/lib/scrapers/scraper"
 import * as cheerio from "cheerio";
-import { SOURCE_LINKS, type SourceName } from "@/types/sourceVars";
-
+import { SOURCE_LINKS, isSourceEnabled, type SourceName } from "@/types/sourceVars";
 
 // Sin límite de tiempo, una fuente que no responde dejaría la petición colgada
 async function fetchHtml(url: string): Promise<string> {
@@ -191,6 +190,11 @@ export async function GET(req: NextRequest) {
 
   if (!source || !url) {
     return NextResponse.json({ error: "Missing source or url" }, { status: 400 });
+  }
+  
+  // Fuente apagada en SOURCE_ENABLED: no se hace scraping
+  if (!isSourceEnabled(source)) {
+    return NextResponse.json({ error: "Source disabled" }, { status: 400 });
   }
 
   if (

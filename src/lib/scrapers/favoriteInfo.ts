@@ -3,6 +3,7 @@ import type { AnimeResult } from "@/types/anime";
 import { fetchMALPage, getMALCard } from "@/lib/scrapers/scraper";
 import { searchFromAnimeAV1, searchFromOtakusTV } from "@/lib/scrapers/search";
 import { MIN_SCORE, normalizeKey, titleMatch } from "@/lib/titles";
+import { SOURCE_ENABLED } from "@/types/sourceVars";
 
 type MALCandidate = { id: number; title: string };
 
@@ -196,9 +197,10 @@ async function searchSource(
  * (cada sitio abrevia o romaniza a su manera).
  */
 export async function getFavoriteInfo(title: string) {
+  // Las fuentes apagadas en SOURCE_ENABLED no se consultan
   const sourcesPromise = Promise.all([
-    searchSource(searchFromAnimeAV1, title),
-    searchSource(searchFromOtakusTV, title),
+    SOURCE_ENABLED.animeav1 ? searchSource(searchFromAnimeAV1, title) : null,
+    SOURCE_ENABLED.otakustv ? searchSource(searchFromOtakusTV, title) : null,
   ]).then(([animeav1, otakustv]) => ({ animeav1, otakustv }));
 
   const malPromise = (async () => {
