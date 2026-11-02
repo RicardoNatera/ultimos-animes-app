@@ -17,9 +17,10 @@ type Props = {
   finished: boolean;
   setFinishedURL:string;
   alternatives?: AnimeAlternative[];
+  agoLabel?: string;
 };
 
-function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setFinishedURL, alternatives }: Props) {
+function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setFinishedURL, alternatives, agoLabel }: Props) {
   const badgeColor = source === "animeflv"
     ? "#facc15" // amarillo
     : source === "animeav1"
@@ -46,11 +47,12 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
     const fetchDownloads = async () => {
       // La fuente de la tarjeta y, si es el mismo capítulo en otras fuentes, también esas
       const targets: DownloadTarget[] = [
-        { source, url: sourceUrl, finishedUrl: setFinishedURL },
+        { source, url: sourceUrl, finishedUrl: setFinishedURL, episode },
         ...(JSON.parse(altKey) as AnimeAlternative[]).map((alt) => ({
           source: alt.source,
           url: alt.url,
           finishedUrl: alt.setFinishedURL,
+          episode: alt.episode,
         })),
       ];
 
@@ -93,7 +95,7 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
       cancelled = true;
       observer.disconnect();
     };
-  }, [source, sourceUrl, setFinishedURL, altKey]);
+  }, [source, sourceUrl, setFinishedURL, altKey, episode]);
 
   return (
     <div
@@ -139,7 +141,7 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
               key={alt.source}
               src={SOURCE_ICONS[alt.source]}
               alt={alt.source}
-              title={`También en ${SOURCE_NAMES[alt.source]}`}
+              title={`También en ${SOURCE_NAMES[alt.source]}${alt.episode !== episode ? ` (allí es el episodio ${alt.episode})` : ""}`}
               className="h-6 w-6 rounded-full shadow-md"
             />
           ))}
@@ -221,7 +223,11 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
       >
         {title}
       </a>
-
+      {agoLabel && (
+        <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+          {agoLabel}
+        </p>
+      )}
       {isModalOpen && downloads && (
         <DownloadModal downloads={downloads} onClose={() => setIsModalOpen(false)} />
       )}

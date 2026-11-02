@@ -4,9 +4,10 @@ export type DownloadTarget = {
   source: SourceName;
   url: string;
   finishedUrl: string;
+  episode?: number; // para avisar si cada sitio numera distinto
 };
 
-export type DownloadLink = { label: string; url: string; source: SourceName };
+export type DownloadLink = { label: string; url: string; source: SourceName, episode?: number; };
 
 type DownloadsResponse = {
   success?: boolean;
@@ -39,7 +40,7 @@ export async function fetchGroupedDownloads(
     if (!json.success || !json.links || json.links.length === 0) continue;
 
     for (const link of json.links) {
-      links.push({ ...link, source: targets[i].source });
+      links.push({ ...link, source: targets[i].source, episode: targets[i].episode });
     }
 
     // El estado "finalizado" lo toma de la primera fuente que respondió bien

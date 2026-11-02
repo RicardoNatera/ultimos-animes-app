@@ -102,6 +102,7 @@ export default function HomeClient() {
                 finished={anime.finished}
                 setFinishedURL={anime.setFinishedURL}
                 alternatives={anime.alternatives}
+                agoLabel={anime.agoLabel}
                 />
             ))}
           </section>

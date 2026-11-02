@@ -6,7 +6,7 @@ import { SOURCE_ICONS, SOURCE_NAMES, type SourceName } from "@/types/sourceVars"
 
 type DownloadModalProps = {
   onClose: () => void;
-  downloads: { label: string; url: string; source?: SourceName }[];
+  downloads: { label: string; url: string; source?: SourceName; episode?: number }[];
 };
 
 export default function DownloadModal({ onClose, downloads }: DownloadModalProps) {
@@ -32,6 +32,9 @@ export default function DownloadModal({ onClose, downloads }: DownloadModalProps
         }))
       : [{ source: undefined as SourceName | undefined, links: downloads }];
 
+  // Si cada sitio numera distinto el mismo capítulo, se aclara en cada sección
+  const sectionEpisodes = new Set(sections.map((s) => s.links[0]?.episode));
+  const showEpisodes = sections.length > 1 && sectionEpisodes.size > 1;
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
       onClose();
@@ -85,6 +88,9 @@ export default function DownloadModal({ onClose, downloads }: DownloadModalProps
                                     className="h-5 w-5 rounded-full"
                                 />
                                 {SOURCE_NAMES[section.source]}
+                                {showEpisodes && section.links[0]?.episode !== undefined && (
+                                    <span className="font-normal opacity-70">· episodio {section.links[0].episode}</span>
+                                )}
                             </h3>
                         )}
                         <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-3">

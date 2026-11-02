@@ -5,6 +5,7 @@ export interface AnimeAlternative {
   source: SourceName;
   url: string;
   setFinishedURL: string;
+  episode: number; // cada sitio puede numerar distinto (relativo o acumulado)
 }
 
 export interface ScrapedAnime {
@@ -12,6 +13,9 @@ export interface ScrapedAnime {
   url: string;
   image: string;
   episode: number;
+  // Antigüedad del episodio si el sitio la muestra ("hace 7 horas")
+  minutesAgo?: number;
+  agoLabel?: string;
   source: SourceName;
   finished: boolean;
   setFinishedURL: string;

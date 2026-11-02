@@ -1,11 +1,13 @@
-import { ScrapedAnime, RankedAnime } from "@/types/anime";
-import {SOURCES, SOURCE_ENABLED, SOURCE_PRIORITY, SourceName} from "@/types/sourceVars"
+import { ScrapedAnime } from "@/types/anime";
+import {SOURCES, SOURCE_ENABLED, SourceName} from "@/types/sourceVars"
+import { deduplicateAnimes, groupNearbyEpisodes, isSameRelease } from "@/lib/dedupe";
+import { rankAnimes } from "@/lib/ordering";
+
 import {
   fetchAnimeFLVHTML, parseAnimeFLV,
   fetchAnimeAV1HTML, parseAnimeAV1,
   fetchOtakusTVHTML, parseOtakusTV
 } from "./scrapers/scraper";
-import { deduplicateAnimes, groupNearbyEpisodes } from "@/lib/dedupe";
 
 const scrapers = {
   [SOURCES.animeflv]: {
@@ -41,38 +43,6 @@ async function getLatestFromSource(source: keyof typeof scrapers): Promise<Scrap
   }
 }
 
-function assignPseudoTimestampsInterleaved(sources: Record<string, ScrapedAnime[]>): RankedAnime[] {
-  const result: RankedAnime[] = [];
-  const baseTimestamp = 10000;
-
-  // Convertir a arreglo de claves ordenadas por prioridad
-  const sourceKeys = Object.keys(sources).sort((a, b) => SOURCE_PRIORITY[a] - SOURCE_PRIORITY[b]);
-
-  let index = 0;
-  let currentTimestamp = baseTimestamp;
-
-  // Mientras alguna fuente tenga elementos en esa posición
-  while (true) {
-    let anyAdded = false;
-
-    for (const source of sourceKeys) {
-      const list = sources[source];
-      if (index < list.length) {
-        result.push({
-          ...list[index],
-          pseudoTimestamp: currentTimestamp--,
-        });
-        anyAdded = true;
-      }
-    }
-
-    if (!anyAdded) break; // ya no hay más elementos en ninguna fuente
-    index++;
-  }
-
-  return result;
-}
-
 export async function reduceAnimes(): Promise<ScrapedAnime[]> {
   try {
     const [animeAV1, otakusTV, animeFLV] = await Promise.all([
@@ -86,7 +56,7 @@ export async function reduceAnimes(): Promise<ScrapedAnime[]> {
       animeflv: animeFLV,
     };
 
-    const ranked = assignPseudoTimestampsInterleaved(sources);
+    const ranked = rankAnimes(sources, isSameRelease);
     const deduped = deduplicateAnimes(ranked);
     deduped.sort((a, b) => b.pseudoTimestamp - a.pseudoTimestamp);
 

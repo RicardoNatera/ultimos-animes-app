@@ -1,4 +1,5 @@
 import axios from "axios";
+import { parseRelativeEs } from "@/lib/relativeTime";
 import * as cheerio from 'cheerio';
 import { ScrapedAnime } from "@/types/anime";
 import { formatInTimeZone } from "date-fns-tz";
@@ -133,7 +134,19 @@ export async function parseAnimeAV1(html: string) {
       const image = `${imgSrc}`;
       const episode = parseInt($(el).find("span.font-bold.text-lead").text().trim()) || 0;
 
-      if(title) animes.push({title,url,image,source:"animeav1",episode,finished:false,setFinishedURL:url})
+            // AnimeAV1 muestra cuándo salió cada episodio ("hace 7 horas")
+      const ago = parseRelativeEs($(el).text());
+
+      if(title) animes.push({
+        title,
+        url,
+        image,
+        source:"animeav1",
+        episode,
+        finished:false,
+        setFinishedURL:url,
+        ...(ago ? { minutesAgo: ago.minutes, agoLabel: ago.label } : {}),
+      })
     };
 
     return animes;

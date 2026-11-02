@@ -12,11 +12,63 @@ export function isSameAnime(a: string, b: string): boolean {
   return match !== null && match.score >= MIN_SCORE;
 }
 
+// Diferencia mínima de capítulos para creer que es otra numeración y no un simple retraso
+const MIN_PART_OFFSET = 6;
+
+/** "Foo Season 2 Part 2" -> { base: "Foo Season 2", part: 2 } · sin "Part N" -> part: null */
+function splitPart(title: string): { base: string; part: number | null } {
+  const match = title.trim().match(/^(.*?)[\s:,–-]*\b(?:part|cour)\s+(\d+)\s*$/i);
+  return match
+    ? { base: match[1].trim(), part: Number(match[2]) }
+    : { base: title.trim(), part: null };
+}
+
+/**
+ * Mismo anime y mismo lanzamiento aunque cada sitio numere distinto.
+ * AnimeAV1 abre un anime nuevo por cada "Part 2" y reinicia la cuenta (cap. 4),
+ * mientras que otros sitios siguen contando (cap. 17). Solo se da por bueno si:
+ *  - exactamente uno de los dos lleva "Part N" (N ≥ 2),
+ *  - sin ese "Part N" los títulos coinciden (incluida la temporada), y
+ *  - el que NO lleva "Part N" va bastante más adelantado en capítulos
+ *    (un retraso normal entre sitios es de 1 o 2 capítulos, no de 6 o más).
+ */
+export function isPartContinuation(a: ScrapedAnime, b: ScrapedAnime): boolean {
+  const pa = splitPart(a.title);
+  const pb = splitPart(b.title);
+
+  let marked: ScrapedAnime;
+  let unmarked: ScrapedAnime;
+  if (pa.part !== null && pa.part >= 2 && pb.part === null) {
+    marked = a;
+    unmarked = b;
+  } else if (pb.part !== null && pb.part >= 2 && pa.part === null) {
+    marked = b;
+    unmarked = a;
+  } else {
+    return false;
+  }
+
+  if (!isSameAnime(splitPart(marked.title).base, unmarked.title)) return false;
+
+  return unmarked.episode - marked.episode >= MIN_PART_OFFSET;
+}
+
+/**
+ * ¿Es el mismo capítulo del mismo anime? Mismo anime y mismo número, o la
+ * misma tanda con numeración distinta entre sitios (ver isPartContinuation).
+ */
+export function isSameRelease(a: ScrapedAnime, b: ScrapedAnime): boolean {
+  if (a.episode === b.episode && isSameAnime(a.title, b.title)) return true;
+
+  return a.source !== b.source && isPartContinuation(a, b);
+}
+
 function asAlternative(anime: ScrapedAnime): AnimeAlternative {
   return {
     source: anime.source,
     url: anime.url,
     setFinishedURL: anime.setFinishedURL,
+    episode: anime.episode,
   };
 }
 
@@ -51,10 +103,8 @@ export function deduplicateAnimes(animes: RankedAnime[]): RankedAnime[] {
   const deduped: RankedAnime[] = [];
 
   for (const anime of animes) {
-    const existingIndex = deduped.findIndex(
-      (existing) =>
-        existing.episode === anime.episode &&
-        isSameAnime(existing.title, anime.title)
+    const existingIndex = deduped.findIndex((existing) =>
+      isSameRelease(existing, anime)
     );
 
     if (existingIndex === -1) {
