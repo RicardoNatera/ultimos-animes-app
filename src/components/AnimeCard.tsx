@@ -5,7 +5,7 @@ import { SOURCE_ICONS, SOURCE_NAMES, SourceName } from "@/types/sourceVars";
 import type { AnimeAlternative } from "@/types/anime";
 import { fetchGroupedDownloads, type DownloadLink, type DownloadTarget } from "@/lib/groupedDownloads";
 import DownloadModal from "@/components/DownloadModal";
-import { Download, Loader2, AlertCircle } from "lucide-react";
+import { Clock, Download, Loader2, AlertCircle } from "lucide-react";
 import FavoriteButton from "@/components/FavoriteButton";
 
 type Props = {
@@ -134,6 +134,12 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
         >
           Episodio {episode}
         </span>
+                {agoLabel && (
+          <span className="pointer-events-none absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-xs font-medium text-white shadow-md">
+            <Clock className="h-3 w-3" />
+            {agoLabel}
+          </span>
+        )}
         <div className="absolute top-2 right-2 flex items-center gap-1">
           {/* Mismo capítulo disponible en otras fuentes */}
           {alternatives?.map((alt) => (
@@ -223,11 +229,6 @@ function AnimeCard({ title, imageUrl, source, sourceUrl, episode, finished, setF
       >
         {title}
       </a>
-      {agoLabel && (
-        <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
-          {agoLabel}
-        </p>
-      )}
       {isModalOpen && downloads && (
         <DownloadModal downloads={downloads} onClose={() => setIsModalOpen(false)} />
       )}
