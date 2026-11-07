@@ -28,6 +28,7 @@ import {
   getSourceSearchUrl,
   type SourceName,
 } from "@/types/sourceVars";
+import FavoritesBackup from "@/components/FavoritesBackup";
 
 const PAGE_SIZE = 25;
 
@@ -105,12 +106,17 @@ export default function FavoritesClient() {
 
   if (favorites.length === 0) {
     return (
-      <div className="text-center py-16 opacity-80">
-        <Star className="mx-auto mb-3" size={40} />
-        <p className="mb-4">Todavía no has marcado ningún favorito.</p>
-        <Link href="/" className="text-blue-500 hover:underline">
-          Ir a la página principal
-        </Link>
+      <div>
+        <div className="text-center py-16 opacity-80">
+          <Star className="mx-auto mb-3" size={40} />
+          <p className="mb-4">Todavía no has marcado ningún favorito.</p>
+          <Link href="/" className="text-blue-500 hover:underline">
+            Ir a la página principal
+          </Link>
+        </div>
+
+        {/* En un dispositivo nuevo, aquí se recupera la copia de seguridad */}
+        <FavoritesBackup className="" />
       </div>
     );
   }
@@ -434,6 +440,7 @@ export default function FavoritesClient() {
           {formatBytes(cacheBytes)}
         </p>
       </div>
+      <FavoritesBackup />
     </div>
   );
 }

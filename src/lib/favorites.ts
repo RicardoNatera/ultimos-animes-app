@@ -134,6 +134,16 @@ const viewStore = createLocalStore<FavoritesView>(
   isFavoritesView
 );
 
+/** Lista actual de favoritos (para código que no es un componente). */
+export function getFavorites(): Favorite[] {
+  return favoritesStore.getSnapshot();
+}
+
+/** Reemplaza la lista completa. Devuelve false si el navegador no tiene espacio. */
+export function setFavorites(next: Favorite[]): boolean {
+  return favoritesStore.set(next);
+}
+
 export type ToggleResult = "added" | "removed" | "full";
 
 /**
