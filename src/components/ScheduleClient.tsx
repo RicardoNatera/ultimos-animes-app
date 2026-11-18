@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Loader from "@/components/Loader";
 import StatusBadge from "@/components/StatusBadge";
-import { runPool } from "@/lib/runPool";
+import {
+  priorityDays,
+  scheduleStore,
+  useSchedule,
+  type ScheduleDetails as Details,
+} from "@/lib/scheduleStore";
 
 const DAYS = [
   "Lunes",
@@ -14,23 +19,6 @@ const DAYS = [
   "Sábado",
   "Domingo",
 ];
-
-type Item = { malId: number; title: string; image: string; day: string };
-
-type Details = {
-  day: string;
-  title: string;
-  url: string;
-  image: string;
-  type: string;
-  episodes: number | null;
-  status: string;
-  score: number | null;
-  airedFrom?: string | null;
-  firstBroadcast?: string | null;
-  broadcastTime: string;
-  period: string;
-};
 
 type Card = Partial<Details> & {
   malId: number;
@@ -45,58 +33,22 @@ function todayName() {
   return DAYS[(today + 6) % 7];
 }
 export default function ScheduleClient() {
-  const [list, setList] = useState<Item[]>([]);
-  const [details, setDetails] = useState<Record<number, Details | null>>({});
-  const [loading, setLoading] = useState(true);
-  const [done, setDone] = useState(0);
+  // Los datos viven en un almacén compartido: si la home ya los precargó (o se
+  // guardaron en una visita anterior) aparecen al instante, y solo se pide lo que falta o está vencido
+  const { list, details, listError, pending } = useSchedule();
 
   const [selectedDay, setSelectedDay] = useState(todayName);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        // Fase 1: lista rápida
-        const res = await fetch("/api/schedule");
-        const json = await res.json();
-        if (cancelled || !json.animes) return;
-
-        setList(json.animes);
-        setLoading(false); // ya se puede pintar el calendario
-
-        // Fase 2: detalle de cada anime, 6 a la vez
-        const i = DAYS.indexOf(todayName());
-        const priority = new Set([DAYS[i], DAYS[(i + 1) % 7]]);
-        const ordered = [...json.animes].sort(
-          (a: Item, b: Item) => Number(priority.has(b.day)) - Number(priority.has(a.day))
-        );
-
-        await runPool<Item>(ordered, 6, async (a) => {
-          try {
-            const r = await fetch(`/api/schedule/${a.malId}`);
-            if (!r.ok) return;
-            const { item } = await r.json();
-            if (!cancelled) {
-              setDetails((prev) => ({ ...prev, [a.malId]: item }));
-            }
-          } catch {
-            // se queda como tarjeta provisional
-          } finally {
-            if (!cancelled) setDone((d) => d + 1);
-          }
-        });
-      } catch (err) {
-        console.error("Error cargando horario:", err);
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
+    void scheduleStore.ensureSchedule({ first: priorityDays(), concurrency: 6 });
   }, []);
+
+  const loading = list.length === 0 && !listError;
+
+  const done = useMemo(
+    () => list.filter((a) => details[a.malId] !== undefined).length,
+    [list, details]
+  );
 
   const schedule = useMemo(() => {
     const out: Record<string, Card[]> = {};
@@ -151,7 +103,22 @@ export default function ScheduleClient() {
 
       {loading && <Loader />}
 
-      {!loading && list.length > 0 && done < list.length && (
+            {listError && (
+        <div className="text-center opacity-80 py-10">
+          <p className="mb-3">No se pudo cargar el calendario.</p>
+          <button
+            type="button"
+            onClick={() =>
+              void scheduleStore.ensureSchedule({ first: priorityDays(), concurrency: 6 })
+            }
+            className="px-4 py-2 rounded-lg font-medium bg-[var(--panel)] hover:bg-[var(--panel-hover)] transition cursor-pointer"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      {pending > 0 && list.length > 0 && done < list.length && (
         <div
           role="status"
           aria-live="polite"

@@ -113,6 +113,57 @@ export function pendingFor(
   });
 }
 
+// Para no pedir dos veces lo mismo cuando la precarga y la página coinciden
+const inFlightInfo = new Map<string, Promise<Info | null>>();
+
+/** Pide la info de un favorito y la guarda en la caché del navegador. null si falló. */
+export function fetchInfo(fav: Favorite): Promise<Info | null> {
+  const running = inFlightInfo.get(fav.key);
+  if (running) return running;
+
+  const request = Promise.resolve().then(async () => {
+    try {
+      const res = await fetch(
+        `/api/favorites/info?title=${encodeURIComponent(fav.title)}`
+      );
+      if (!res.ok) throw new Error(String(res.status));
+      const data: Info = await res.json();
+
+      const cache = readCache();
+      cache[fav.key] = { at: Date.now(), data };
+      writeCache(cache);
+
+      return data;
+    } catch {
+      return null;
+    } finally {
+      inFlightInfo.delete(fav.key);
+    }
+  });
+
+  inFlightInfo.set(fav.key, request);
+  return request;
+}
+
+// Los que ya se intentaron en esta sesión no se vuelven a pedir en segundo plano
+const prefetchAttempted = new Set<string>();
+
+/** Precarga la info de los primeros favoritos que estén sin datos o vencidos. */
+export async function prefetchFavoritesInfo(
+  favorites: Favorite[],
+  limit = 25,
+  concurrency = 2
+): Promise<void> {
+  const todo = pendingFor(favorites.slice(0, limit), readCache(), prefetchAttempted);
+  if (todo.length === 0) return;
+
+  todo.forEach((fav) => prefetchAttempted.add(fav.key));
+
+  await runPool(todo, concurrency, async (fav) => {
+    await fetchInfo(fav);
+  });
+}
+
 /**
  * Info (ficha de MAL y enlaces) de los favoritos. Se guarda en el navegador:
  * lo ya consultado aparece al instante y solo se vuelve a pedir si está viejo.
@@ -150,31 +201,20 @@ export function useFavoritesInfo() {
     todo.forEach((fav) => attempted.current.add(fav.key));
     setPending((n) => n + todo.length);
 
-    runPool(todo, 3, async (fav) => {
-      try {
-        const res = await fetch(
-          `/api/favorites/info?title=${encodeURIComponent(fav.title)}`
-        );
-        if (!res.ok) throw new Error(String(res.status));
-        const data: Info = await res.json();
+        runPool(todo, 3, async (fav) => {
+      const data = await fetchInfo(fav);
 
-        const cache = readCache();
-        cache[fav.key] = { at: Date.now(), data };
-        writeCache(cache);
-
-        if (alive.current) {
+      if (alive.current) {
+        if (data) {
           setInfo((prev) => ({ ...prev, [fav.key]: data }));
           setBytes(cacheSizeBytes());
-        }
-      } catch {
-        // Si ya había datos guardados (aunque viejos) se conservan
-        if (alive.current) {
+        } else {
+          // Si ya había datos guardados (aunque viejos) se conservan
           setInfo((prev) =>
             prev[fav.key] === undefined ? { ...prev, [fav.key]: null } : prev
           );
         }
-      } finally {
-        if (alive.current) setPending((n) => n - 1);
+        setPending((n) => n - 1);
       }
     });
   }, []);

@@ -6,6 +6,7 @@ import { ScrapedAnime } from '@/types/anime';
 import { RefreshCw, Star } from 'lucide-react';
 import Loader from '@/components/Loader';
 import { useFavorites, useOnlyFavorites } from '@/lib/favorites';
+import BackgroundPrefetch from '@/components/BackgroundPrefetch';
 
 export default function HomeClient() {
   const [animes, setAnimes] = useState<ScrapedAnime[]>([]);
@@ -107,6 +108,8 @@ export default function HomeClient() {
             ))}
           </section>
         )}
+        {/* Con la home ya cargada, deja listos en segundo plano el calendario y los favoritos */}
+        {!loading && animes.length > 0 && <BackgroundPrefetch />}
     </div>
     );
 }
