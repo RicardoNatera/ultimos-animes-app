@@ -7,6 +7,7 @@ import { RefreshCw, Star } from 'lucide-react';
 import Loader from '@/components/Loader';
 import { useFavorites, useOnlyFavorites } from '@/lib/favorites';
 import BackgroundPrefetch from '@/components/BackgroundPrefetch';
+import { readHomeCache, writeHomeCache } from '@/lib/homeCache';
 
 export default function HomeClient() {
   const [animes, setAnimes] = useState<ScrapedAnime[]>([]);
@@ -24,6 +25,7 @@ export default function HomeClient() {
       const data = await res.json();
       if (!Array.isArray(data)) throw new Error('Respuesta inesperada');
       setAnimes(data);
+      writeHomeCache(data);
     } catch (err) {
       console.error('Error al cargar animes', err);
       setError(true);
@@ -33,6 +35,10 @@ export default function HomeClient() {
   };
 
   useEffect(() => {
+    // Si ya cargaste la home hace poco, se enseña al instante mientras llega la lista nueva
+    const cached = readHomeCache();
+    if (cached) setAnimes(cached);
+
     fetchAnimes();
   }, []);
 

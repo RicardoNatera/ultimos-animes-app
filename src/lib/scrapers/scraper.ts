@@ -6,6 +6,8 @@ import { formatInTimeZone } from "date-fns-tz";
 
 // Sin límite de tiempo, un sitio que no responde dejaría colgada toda la página de inicio
 axios.defaults.timeout = 8000;
+// La home no espera más que esto a cada sitio: si uno va lento, se muestra lo del otro
+export const HOME_SOURCE_TIMEOUT_MS = 5000;
 
 export function extractEpisodeNumber(text: string): number {
   const match = text.match(/\d+/); // busca el primer número en la cadena
@@ -40,7 +42,7 @@ export async function fetchAnimeFLVStatus(animeUrl: string): Promise<boolean> {
 
 export async function fetchAnimeFLVHTML(): Promise<string> {
   try {
-    const response = await axios.get("https://www3.animeflv.net/", {headers: getDefaultScraperHeaders()});
+    const response = await axios.get("https://www3.animeflv.net/", {headers: getDefaultScraperHeaders(), timeout: HOME_SOURCE_TIMEOUT_MS});
     return response.data;
   } catch (error) {
     console.error("Error al obtener el HTML de AnimeFLV:", error);
@@ -113,7 +115,7 @@ export async function fetchAnimeAV1Status(animeUrl: string): Promise<boolean> {
 }
 export async function fetchAnimeAV1HTML(): Promise<string> {
   try {
-      const response = await axios.get("https://animeav1.com/", {headers: getDefaultScraperHeaders()});
+      const response = await axios.get("https://animeav1.com/", {headers: getDefaultScraperHeaders(), timeout: HOME_SOURCE_TIMEOUT_MS});
       return response.data;
     } catch (error) {
       console.error("Error al obtener el HTML de AnimeAV1:", error);
@@ -167,7 +169,7 @@ export async function fetchOtakusTVStatus(animeUrl: string): Promise<boolean> {
 }
 export async function fetchOtakusTVHTML(): Promise<string> {
   try {
-    const response = await axios.get("https://www.otakustv.net/", {headers: getDefaultScraperHeaders()});
+    const response = await axios.get("https://www.otakustv.net/", {headers: getDefaultScraperHeaders(), timeout: HOME_SOURCE_TIMEOUT_MS});
     return response.data;
   } catch (error) {
     console.error("Error al obtener el HTML de OtakusTV:", error);

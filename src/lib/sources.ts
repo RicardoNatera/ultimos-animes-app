@@ -24,10 +24,25 @@ const scrapers = {
   },
 } as const;
 
-async function getLatestFromSource(source: keyof typeof scrapers): Promise<ScrapedAnime[]> {
+export type SourceStatus = {
+  enabled: boolean;
+  /** false si falló, se agotó el tiempo o no se leyó ningún episodio */
+  ok: boolean;
+  ms: number;
+  count: number;
+};
+
+type SourceResult = { animes: ScrapedAnime[]; status: SourceStatus };
+
+async function getLatestFromSource(source: keyof typeof scrapers): Promise<SourceResult> {
+  // Fuente apagada en SOURCE_ENABLED: ni siquiera se hace la petición
+  if (!SOURCE_ENABLED[source]) {
+    return { animes: [], status: { enabled: false, ok: true, ms: 0, count: 0 } };
+  }
+
+  const start = performance.now();
+
   try {
-    // Fuente apagada en SOURCE_ENABLED: ni siquiera se hace la petición
-    if (!SOURCE_ENABLED[source]) return [];
     const html = await scrapers[source].fetch();
     const animes = await scrapers[source].parse(html);
 
@@ -36,27 +51,48 @@ async function getLatestFromSource(source: keyof typeof scrapers): Promise<Scrap
       console.warn(`[${source}] 0 episodios leídos: ¿cambió el HTML del sitio?`);
     }
 
-    return animes;
+    const ms = performance.now() - start;
+    if (ms > 3000) console.warn(`[${source}] tardó ${Math.round(ms)} ms`);
+
+    return { animes, status: { enabled: true, ok: animes.length > 0, ms, count: animes.length } };
   } catch (err) {
     console.error(`Error scraping ${source}:`, err);
-    return [];
+    return {
+      animes: [],
+      status: { enabled: true, ok: false, ms: performance.now() - start, count: 0 },
+    };
   }
 }
 
-export async function reduceAnimes(): Promise<ScrapedAnime[]> {
+export type HomeResult = {
+  animes: ScrapedAnime[];
+  sources: Record<SourceName, SourceStatus>;
+  /** true si todas las fuentes encendidas respondieron bien */
+  complete: boolean;
+};
+
+export async function reduceAnimesWithStatus(): Promise<HomeResult> {
+  const [animeAV1, otakusTV, animeFLV] = await Promise.all([
+    getLatestFromSource(SOURCES.animeav1),
+    getLatestFromSource(SOURCES.otakustv),
+    getLatestFromSource(SOURCES.animeflv),
+  ]);
+
+  const statuses: Record<SourceName, SourceStatus> = {
+    animeav1: animeAV1.status,
+    otakustv: otakusTV.status,
+    animeflv: animeFLV.status,
+  };
+  const complete = Object.values(statuses).every((s) => !s.enabled || s.ok);
+
   try {
-    const [animeAV1, otakusTV, animeFLV] = await Promise.all([
-      getLatestFromSource(SOURCES.animeav1),
-      getLatestFromSource(SOURCES.otakustv),
-      getLatestFromSource(SOURCES.animeflv),
-    ]);
-    const sources: Record<SourceName, ScrapedAnime[]> = {
-      animeav1: animeAV1,
-      otakustv: otakusTV,
-      animeflv: animeFLV,
+    const lists: Record<SourceName, ScrapedAnime[]> = {
+      animeav1: animeAV1.animes,
+      otakustv: otakusTV.animes,
+      animeflv: animeFLV.animes,
     };
 
-    const ranked = rankAnimes(sources, isSameRelease);
+    const ranked = rankAnimes(lists, isSameRelease);
     const deduped = deduplicateAnimes(ranked);
     deduped.sort((a, b) => b.pseudoTimestamp - a.pseudoTimestamp);
 
@@ -64,9 +100,13 @@ export async function reduceAnimes(): Promise<ScrapedAnime[]> {
       deduped.map(({ pseudoTimestamp, ...rest }) => rest)
     );
 
-    return grouped;  
+    return { animes: grouped, sources: statuses, complete };
   } catch (err) {
     console.error("Error reducing animes:", err);
-    return [];
+    return { animes: [], sources: statuses, complete: false };
   }
+}
+
+export async function reduceAnimes(): Promise<ScrapedAnime[]> {
+  return (await reduceAnimesWithStatus()).animes;
 }

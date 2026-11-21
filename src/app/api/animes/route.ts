@@ -1,11 +1,15 @@
-import { reduceAnimes } from '@/lib/sources';
+import { reduceAnimesWithStatus } from '@/lib/sources';
+import { homeCacheControl, serverTimingHeader } from '@/lib/homeResponse';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const animes = await reduceAnimes();
+  const start = performance.now();
+  const { animes, sources, complete } = await reduceAnimesWithStatus();
+
   return NextResponse.json(animes, {
     headers: {
-      "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+      "Cache-Control": homeCacheControl(complete),
+      "Server-Timing": serverTimingHeader(sources, performance.now() - start),
     },
   });
 }

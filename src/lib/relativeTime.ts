@@ -27,3 +27,21 @@ export function parseRelativeEs(
 
   return { minutes, label };
 }
+
+/** 420 -> "hace 7 horas" · 1440 -> "hace un día" · 0 -> "hace unos segundos" */
+export function formatRelativeEs(minutes: number): string {
+  if (minutes < 1) return "hace unos segundos";
+
+  if (minutes < 60) {
+    const m = Math.floor(minutes);
+    return m === 1 ? "hace un minuto" : `hace ${m} minutos`;
+  }
+
+  if (minutes < 1440) {
+    const h = Math.floor(minutes / 60);
+    return h === 1 ? "hace una hora" : `hace ${h} horas`;
+  }
+
+  const d = Math.floor(minutes / 1440);
+  return d === 1 ? "hace un día" : `hace ${d} días`;
+}
